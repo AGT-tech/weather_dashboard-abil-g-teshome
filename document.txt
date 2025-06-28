@@ -1,0 +1,73 @@
+As I was creating the test directory, I found out that the idea of creating an init file was neccessary. 
+so I am creating an init file for all the directories and also in the main depository
+
+I am adding an init file in the depository in the capstone-tps25 directory
+
+
+Created a test 
+
+
+I changed my repository name in GitHub and used "git remote -v" to check the current depository url and updated it with  "git remote set-url orgin <new-repo-url>".
+With this I will fetch and push to the actual depository. Once I updated the url in my local repo I also updated the name in my local repo
+
+
+Create a config.py file for storing the API keys
+    took the three steps of add, commit, and push to my depository.
+
+
+Create a data directory
+Create a screenshots directory
+create a requirements file
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+example test
+
+why write Tests
+-- Simulate possible edge cases
+
+-- catch & Track Breaking Changes
+    when start working with an app that has multiple parts 
+
+ AI can write tests well
+ There are great way of writing tests
+
+Unit testing and integration testing

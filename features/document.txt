@@ -1,0 +1,2 @@
+Create both the directory and the document.txt 
+ 
