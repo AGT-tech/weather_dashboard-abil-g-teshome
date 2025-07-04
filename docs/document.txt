@@ -35,6 +35,14 @@ Add WeatherStorage class to save city temperature data to file
 Includes a meathod to append city and temperature data to 'data.txt'.
 Sets up basic persistence for weather information.
 
+Define public API with WeatherAPI, WeatherProcessor, and WeatherStorage
+
+Initialize a Tkinter window 
+    - Sets the title to "Weather Dashboard"
+    - Sets the window size to 400x300
+    - Starts the GUI loop when run as the main script
+
+
 
 
 
