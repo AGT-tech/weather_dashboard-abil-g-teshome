@@ -1,6 +1,6 @@
 import pandas as pd
 
-class Weatherprocessor:
+class WeatherProcessor:
     """Handles weather data processing tasks."""
 
     def convert_temperature(self, celsius):
