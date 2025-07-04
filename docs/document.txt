@@ -23,6 +23,13 @@ Create a week11_reflection.md file
 
 write reflection for week 11
 
+add weather application class with basic weather API setup 
+It includes constructor with API key, base URL, and default timeout.
+Lays foundation for future weather data functionality
+
+Add WeatherProcessor class with Celsius to Fahrenheit Conversion
+includes a method to convert temperature from celsius to Fahrenheit.
+Prepared for future weather data processing extensions.
 
 
 
