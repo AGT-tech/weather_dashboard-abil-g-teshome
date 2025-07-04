@@ -31,6 +31,9 @@ Add WeatherProcessor class with Celsius to Fahrenheit Conversion
 includes a method to convert temperature from celsius to Fahrenheit.
 Prepared for future weather data processing extensions.
 
+Add WeatherStorage class to save city temperature data to file
+Includes a meathod to append city and temperature data to 'data.txt'.
+Sets up basic persistence for weather information.
 
 
 
