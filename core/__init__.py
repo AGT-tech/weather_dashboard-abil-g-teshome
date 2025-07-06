@@ -1,7 +1,7 @@
 """Core functionality for Weather Dashboard"""
 
 from .api import WeatherAPI
-from .processor import WeatherProcessor
+from .processor import DataProcessor
 from .storage import WeatherStorage
 
-__all__ = ['WeatherAPI', 'WeatherProcessor', 'WeatherStorage']
+__all__ = ['WeatherAPI', 'DataProcessor', 'WeatherStorage']
