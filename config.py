@@ -1,26 +1,30 @@
 # A file for an API keys
 
 import os
-from dataclasses import dataclasses
+from dataclasses import dataclass
+
+from dotenv import load_dotenv
+load_dotenv()
+
 
 @dataclass
 class Config:
-    """Application configuration with secure defults.
+    """Application configuration with secure defaults.
     This class holds all the configuration values needed by an app -
     things like API credentials, file paths, and retry settings.
     """
 
     api_key: str            # Required credential to authenticate with the weather API
-    datacbase_path: str     # Path to the SQLite database file for storing weather data
-    log_level: str = "INFO" # Controls legging verbosity: DEBUG, INFO, WARNING, etc.
-    max_retries: int = 3    # Number of retry attemps for failed API requests
+    database_path: str     # Path to the SQLite database file for storing weather data
+    log_level: str = "INFO" # Controls logging verbosity: DEBUG, INFO, WARNING, etc.
+    max_retries: int = 3    # Number of retry attempts for failed API requests
     request_timeout: int = 10 # Max wait time (in seconds) before an API call is aborted
 
     @classmethod
     def from_environment(cls):
         """This method instantiates a Config object using environment variables,
         which is ideal for production deployments or CI pipelines."""
-        api_key = os.getenv('WEATHER_API_KEY') # Tries to load the WEATHER_API_KEY from the enviromment
+        api_key = os.getenv('WEATHER_API_KEY') # Tries to load the WEATHER_API_KEY from the environment
         if not api_key:
             raise ValueError("WEATHER_API_KEY environment variable required")
         
