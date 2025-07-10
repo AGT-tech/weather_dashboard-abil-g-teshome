@@ -12,7 +12,7 @@ class WeatherApp:
 
         # Load config and create WeatherAPI instance
         config = Config.from_environment()
-        self.weather_api = WeatherAPI(api_key=config.api_key, timeout=config.request_timeout)
+        self.weather_api = WeatherAPI(api_key=config.api_key) # timeout=config.request_timeout)
 
          # Instantiate WeatherProcessor
         self.processor = DataProcessor()
