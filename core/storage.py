@@ -1,5 +1,3 @@
-import api
-
 class WeatherStorage:
     """Handles saving weather data to a file."""
 
