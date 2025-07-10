@@ -45,6 +45,19 @@ Initialize a Tkinter window
 
 
 
+07/09
+
+commit message for API file:
+    refactor(api): convert WeatherAPI to use dataclass and improve structure
+
+after recovering the lost files i aborted a base that caused me to loose the actual api contructed file
+this above commit is actually a remake of the orginal i had there.
+
+initiated the storage file:
+    feat(storage): add WeatherStorage classs to save weather data to file
+
+build and added my gui file for the next update:
+    feat(gui): implement WeatherApp UI with weather fetch and stats display
 
 
 
