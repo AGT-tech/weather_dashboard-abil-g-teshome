@@ -58,7 +58,6 @@ class WeatherApp:
 
             self.weather_history.append(processed)  # Track history for stats
 
-            unit_symbol = "°F" if unit == "imperial" else "°C"
             self.result_label.config(text=(
                 f"{processed['city']}:\n"
                 f"{processed['description'].title()}\n"
