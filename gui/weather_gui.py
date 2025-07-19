@@ -62,8 +62,8 @@ class WeatherApp:
             self.result_label.config(text=(
                 f"{processed['city']}:\n"
                 f"{processed['description'].title()}\n"
-                f"Temp: {processed['temperature']}°F\n"
-                f"Feels Like: {processed['feels_like']}°F\n"
+                f"Temp: {processed['temperature']}{processed['unit']}\n"
+                f"Feels Like: {processed['feels_like']}{processed['unit']}\n"
                 f"Humidity: {processed['humidity']}%\n"
                 f"Wind: {processed['wind_speed']} mph"
         ))
