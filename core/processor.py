@@ -23,7 +23,7 @@ class DataProcessor:
                 'feels_like': round(data.get('main', {}).get('feels_like', 0)),
                 'humidity': data.get('main', {}).get('humidity', 0),
                 'description': data.get('weather', [{}])[0].get('description', ''),
-                'wind_speed': f"{data.get('wind', {}).get('speed', 0)}{wind_unit}",
+                'wind_speed': f"{data.get('wind', {}).get('speed', 0)} {wind_unit}",
                 "unit": unit_symbol
             }
         except (KeyError, IndexError, TypeError) as e:
@@ -43,10 +43,14 @@ class DataProcessor:
             'average': round(statistics.mean(temps), 1),
             'minimum': min(temps),
             'maximum': max(temps),
-            'trend': 'rising' if temps[-1] > temps[0] else 'falling' #trend,
-            # 'weather_counts': dict(Counter(descriptions))
+            'trend': (
+                "stable" if len(temps) == 1
+                else "rising" if temps[-1] > temps[0]
+                else"falling"
+            )
         }
-    
+
+    @staticmethod
     # convert temperature
     def convert_temperature(temp, from_unit, to_unit):
         if from_unit == to_unit:
@@ -56,6 +60,10 @@ class DataProcessor:
     def export_to_csv(self, history, file_path=""):
         # importing csv
         import csv
+
+        if not history:
+            return
+        
         keys = history[0].keys()
         with open(file_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=keys)
