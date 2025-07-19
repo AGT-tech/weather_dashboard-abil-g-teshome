@@ -39,3 +39,9 @@ class DataProcessor:
             # 'weather_counts': dict(Counter(descriptions))
         }
     
+    # convert temperature
+    def conver_temperature(temp, from_unit, to_unit):
+        if from_unit == to_unit:
+            return temp
+        return (temp- 32) * 5/ 9 if to_unit == "metric" else (temp * 9/5) + 32
+    
