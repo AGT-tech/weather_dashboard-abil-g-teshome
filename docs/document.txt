@@ -89,7 +89,14 @@ add, commit and push to origin main
 
 ==========================
 
+add export_to_csv function in the DataProcessor function
 
+----------------------------
+
+add, commit and push to origin main
+    core/processor.py
+
+======================================
 
 
 
