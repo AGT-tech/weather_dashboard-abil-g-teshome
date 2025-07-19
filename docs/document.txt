@@ -110,8 +110,22 @@ add, commit and push to origin main
 
 ===================================
 
+removed a mph unit that was in the handle_weather_request function
+-------------------------- 
 
+add, commit and push to origin main
+    gui/weather_gui.py
 
+=================================
+
+removed 'unit_symbol' from handle_weather_request because it wasn't being used.
+update document.txt with work flow
+
+---------------------------
+
+add, commit and push to origin main
+    gui/weather_gui.py
+    docs/document.text
 
 
 
