@@ -71,6 +71,23 @@ added the option for "°F" if unit == "imperial" else "°C" in the fe
 
 update fetch_weather function name to handle_weather_request 
 
+add, commit and push origin main 
+    main.py
+    core/api.py
+    docs/document.txt
+    gui/weather_gui.py
+    
+add, commit and push to origin main
+    docs/document.txt
+
+add a convert temperature function in the processor.py file in the DataProcessor class
+
+------------------------------------
+add, commit and push to origin main
+    core/processor.py
+    docs/document.txt
+
+==========================
 
 
 
