@@ -8,7 +8,7 @@ class WeatherApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Weather Dashboard")
-        self.root.geometry("400x300")
+        self.root.geometry("800x500")
 
         # Load config and create WeatherAPI instance
         config = Config.from_environment()

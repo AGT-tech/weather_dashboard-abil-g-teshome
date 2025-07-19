@@ -3,6 +3,7 @@
 
 from typing import Dict, List
 import statistics
+# from collections import Counter
 
 class DataProcessor:
     """Processes and analyzes weather data"""
@@ -27,10 +28,14 @@ class DataProcessor:
             return {}
             
         temps = [h['temperature'] for h in history]
+        # descriptions = [h['desctiption'] for h in history]
+        # trend = self.detect_trend(temps)
         
         return {
             'average': round(statistics.mean(temps), 1),
             'minimum': min(temps),
             'maximum': max(temps),
-            'trend': 'rising' if temps[-1] > temps[0] else 'falling'
+            'trend': 'rising' if temps[-1] > temps[0] else 'falling' #trend,
+            # 'weather_counts': dict(Counter(descriptions))
         }
+    
