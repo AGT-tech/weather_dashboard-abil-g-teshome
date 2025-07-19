@@ -10,7 +10,7 @@ class WeatherAPI:
     base_url: str = "http://api.openweathermap.org/data/2.5/weather"  # API endpoint
 
     # Fetch weather data for a given city
-    def fetch_weather(self, city: str) -> Optional[Dict]:
+    def fetch_weather(self, city: str, units: str = "imperial") -> Optional[Dict]:
         try:
             # Build and send GET request with query parameters
             response = requests.get(
@@ -18,7 +18,7 @@ class WeatherAPI:
                 params={
                     'q': city,
                     'appid': self.api_key,
-                    'units': 'imperial'     # Fahrenheit; use 'metric' for Celsius
+                    'units': units     # Fahrenheit; use 'metric' for Celsius
                 },
                 timeout=self.timeout
             )
