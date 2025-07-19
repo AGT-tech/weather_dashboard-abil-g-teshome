@@ -65,7 +65,7 @@ class WeatherApp:
                 f"Temp: {processed['temperature']}{processed['unit']}\n"
                 f"Feels Like: {processed['feels_like']}{processed['unit']}\n"
                 f"Humidity: {processed['humidity']}%\n"
-                f"Wind: {processed['wind_speed']} mph"
+                f"Wind: {processed['wind_speed']}"
         ))
 
         else:
