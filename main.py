@@ -16,7 +16,7 @@ def main():
         api_key=config.api_key,
         timeout=config.request_timeout
     )
-
+ 
 if __name__ == "__main__":
     app = WeatherApp()
     app.run()
