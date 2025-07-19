@@ -45,6 +45,10 @@ class WeatherApp:
         stats_btn = tk.Button(self.root, text="Show Stats", command=self.show_statistics)
         stats_btn.pack(pady=5)
 
+        #Export to csv
+        export_btn = tk.Button(self.root, text="Export to CSV", command=self.export_history)
+        export_btn.pack(pady=5)
+
     def handle_weather_request(self):
         city = self.city_entry.get().strip()
         if not city:
@@ -54,7 +58,11 @@ class WeatherApp:
         unit = self.unit_var.get()
         raw_data = self.weather_api.fetch_weather(city, units=unit)
         if raw_data:
-            processed = self.processor.process_api_response(raw_data)
+            processed = self.processor.process_api_response(raw_data, units=unit)
+        
+            if not processed:
+                messagebox.showerror("Processing Error", "Weather data format was invalid.")
+                return
 
             self.weather_history.append(processed)  # Track history for stats
 
@@ -65,7 +73,7 @@ class WeatherApp:
                 f"Feels Like: {processed['feels_like']}{processed['unit']}\n"
                 f"Humidity: {processed['humidity']}%\n"
                 f"Wind: {processed['wind_speed']}"
-        ))
+            ))
 
         else:
             messagebox.showerror("Error", "Could not fetch weather data.")
@@ -82,7 +90,26 @@ class WeatherApp:
             f"Max: {stats['maximum']}°F\n"
             f"Trend: {stats['trend'].capitalize()}"
         ))
+    
+    #Export history function
+    def export_history(self):
+        if not self.weather_history:
+            messagebox.showinfo("Export", "No data to export.")
+            return
+        
+        from tkinter import filedialog
+        file_path = filedialog.asksaceasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Save Weather History"
+        )
 
+        if file_path:
+            try:
+                self.processor.export_to_csv(self.weather_history, file_path)
+                messagebox.showinfo("Export Successful", f"Weather history saved to:\n{file_path}")
+            except Exception as e:
+                messagebox.showerror("Export Failed", f"An error occurred: {e}")
 
     def run(self):
         self.root.mainloop()
