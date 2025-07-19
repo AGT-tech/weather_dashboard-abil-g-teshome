@@ -60,6 +60,19 @@ build and added my gui file for the next update:
     feat(gui): implement WeatherApp UI with weather fetch and stats display
 
 
+7/19
+
+adding a unit toggle in the gui
+updating the unit option in the raw_data by adding a unit parameter
+
+updating the fetch_weather function to take a units parameter
+
+added the option for "°F" if unit == "imperial" else "°C" in the fe
+
+update fetch_weather function name to handle_weather_request 
+
+
+
 
 
 
