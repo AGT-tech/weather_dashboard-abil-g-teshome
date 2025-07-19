@@ -17,16 +17,6 @@ def main():
         timeout=config.request_timeout
     )
 
-    # Prompt user for a city and fetch weather
-    city = input("Enter a city name: ").strip()
-    weather_data = weather_api.fetch_weather(city)
-
-    if weather_data:
-        print(f"Weather in {city}: {weather_data['weather'][0]['description'].title()}")
-        print(f"Temperature: {weather_data['main']['temp']}°F")
-    else:
-        print("Could not fetch weather data. Please check the city name or try again later.")
-
 if __name__ == "__main__":
     app = WeatherApp()
     app.run()
