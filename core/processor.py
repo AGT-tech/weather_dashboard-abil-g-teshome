@@ -45,3 +45,12 @@ class DataProcessor:
             return temp
         return (temp- 32) * 5/ 9 if to_unit == "metric" else (temp * 9/5) + 32
     
+    def export_to_csv(self, history, file_path=""):
+        # importing csv
+        import csv
+        keys = history[0].keys()
+        with open(file_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(history)
+    
