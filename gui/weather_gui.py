@@ -1,4 +1,6 @@
 import tkinter as tk
+import os
+from datetime import datetime
 from tkinter import messagebox
 from core.api import WeatherAPI
 from config import Config
@@ -129,7 +131,9 @@ class WeatherApp:
             return
         
         from tkinter import filedialog
+        os.makedirs("data", exist_ok=True)
         file_path = filedialog.asksaveasfilename(
+            initialdir=os.path.abspath"data",
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv")],
             title="Save Weather History"
@@ -165,15 +169,16 @@ class WeatherApp:
                 widget.configure(bg=theme["button_bg"], fg=theme["button_fg"], activebackground=theme["bg"],activeforeground=theme["fg"])
 
     def save_theme_preference(self):
+        os.makedirs("data", exist_ok=True)
         try:
-            with open("theme_config.txt", "w") as f:
+            with open("data/theme_config.txt", "w") as f:
                 f.write(self.current_theme)
         except Exception as e:
             print(f"Error saving theme: {e}")
 
     def load_theme_preference(self):
         try:
-            with open("theme_config.txt", "r") as f:
+            with open("data/theme_config.txt", "r") as f:
                 saved_theme = f.read().strip()
                 if saved_theme in self.themes:
                     self.current_theme = saved_theme
