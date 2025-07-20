@@ -1,10 +1,11 @@
 import tkinter as tk
-import os
-from datetime import datetime
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
+from tkinter import ttk
 from core.api import WeatherAPI
 from config import Config
 from core.processor import DataProcessor
+import os
+from datetime import datetime
 
 class WeatherApp:
     def __init__(self):
@@ -12,75 +13,81 @@ class WeatherApp:
         self.root.title("Weather Dashboard")
         self.root.geometry("800x500")
 
-        # Load config and create WeatherAPI instance
+        # Load config and API
         config = Config.from_environment()
-        self.weather_api = WeatherAPI(api_key=config.api_key) # timeout=config.request_timeout)
-
-         # Instantiate WeatherProcessor
+        self.weather_api = WeatherAPI(api_key=config.api_key)
         self.processor = DataProcessor()
         self.weather_history = []
 
-        # Theme handling
+        # Theme setup
         self.current_theme = "light"
         self.themes = {
             "light": {
-                "bg": "#FFFFFF",
-                "fg": "#000000",
-                "entry_bg": "#FFFFFF",
-                "entry_fg": "#000000",
-                "button_bg": "#E0E0E0",
-                "button_fg": "#000000"
+                "bg": "#FFFFFF", "fg": "#000000",
+                "entry_bg": "#FFFFFF", "entry_fg": "#000000",
+                "button_bg": "#E0E0E0", "button_fg": "#000000"
             },
             "dark": {
-                "bg": "#2E2E2E",
-                "fg": "#FFFFFF",
-                "entry_bg": "#3C3F41",
-                "entry_fg": "#FFFFFF",
-                "button_bg": "#555555",
-                "button_fg": "#FFFFFF"
+                "bg": "#2E2E2E", "fg": "#FFFFFF",
+                "entry_bg": "#3C3F41", "entry_fg": "#FFFFFF",
+                "button_bg": "#555555", "button_fg": "#FFFFFF"
             }
         }
-
         self.load_theme_preference()
 
-        # Setup UI
         self.setup_ui()
 
-
     def setup_ui(self):
-        # City input
-        tk.Label(self.root, text="Enter City Name:", font=("Helvetica", 14)).pack(pady=10)
-        self.city_entry = tk.Entry(self.root, font=("Helvetica", 14))
-        self.city_entry.pack(pady=5)
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(expand=True, fill="both")
 
-        # Unit selection dropdown
-        self.unit_var = tk.StringVar(value="imperial")
-        unit_dropdown = tk.OptionMenu(self.root, self.unit_var, "imperial", "metric")
-        unit_dropdown.pack(pady=5)
+        # Create tabs
+        self.weather_frame = tk.Frame(self.notebook)
+        self.stats_frame = tk.Frame(self.notebook)
+        self.export_frame = tk.Frame(self.notebook)
+        self.settings_frame = tk.Frame(self.notebook)
 
-        # Fetch button
-        fetch_btn = tk.Button(self.root, text="Get Weather", command=self.handle_weather_request, font=("Helvetica", 14))
-        fetch_btn.pack(pady=10)
+        self.notebook.add(self.weather_frame, text="Weather")
+        self.notebook.add(self.stats_frame, text="Statistics")
+        self.notebook.add(self.export_frame, text="Export")
+        self.notebook.add(self.settings_frame, text="Settings")
 
-        # Result display label
-        self.result_label = tk.Label(self.root, text="", font=("Helvetica", 12), wraplength=350, justify="center")
-        self.result_label.pack(pady=20)
-
-        # Stats button
-        stats_btn = tk.Button(self.root, text="Show Stats", command=self.show_statistics)
-        stats_btn.pack(pady=5)
-
-        #Export to csv
-        export_btn = tk.Button(self.root, text="Export to CSV", command=self.export_history)
-        export_btn.pack(pady=5)
-
-        # Theme switcher button
-        theme_btn = tk.Button(self.root, text="Switch Theme", command=self.toggle_theme)
-        theme_btn.pack(pady=5)
-
-        # Apply the current theme to all widgets
+        self.build_weather_tab()
+        self.build_stats_tab()
+        self.build_export_tab()
+        self.build_settings_tab()
         self.apply_theme()
 
+    # --- Tabs ---
+
+    def build_weather_tab(self):
+        tk.Label(self.weather_frame, text="Enter City Name:", font=("Helvetica", 14)).pack(pady=10)
+        self.city_entry = tk.Entry(self.weather_frame, font=("Helvetica", 14))
+        self.city_entry.pack(pady=5)
+
+        self.unit_var = tk.StringVar(value="imperial")
+        unit_dropdown = tk.OptionMenu(self.weather_frame, self.unit_var, "imperial", "metric")
+        unit_dropdown.pack(pady=5)
+
+        fetch_btn = tk.Button(self.weather_frame, text="Get Weather", command=self.handle_weather_request, font=("Helvetica", 14))
+        fetch_btn.pack(pady=10)
+
+        self.result_label = tk.Label(self.weather_frame, text="", font=("Helvetica", 12), wraplength=350, justify="center")
+        self.result_label.pack(pady=20)
+
+    def build_stats_tab(self):
+        stats_btn = tk.Button(self.stats_frame, text="Show Stats", command=self.show_statistics)
+        stats_btn.pack(pady=10)
+
+    def build_export_tab(self):
+        export_btn = tk.Button(self.export_frame, text="Export to CSV", command=self.export_history)
+        export_btn.pack(pady=10)
+
+    def build_settings_tab(self):
+        theme_btn = tk.Button(self.settings_frame, text="Switch Theme", command=self.toggle_theme)
+        theme_btn.pack(pady=10)
+
+    # --- Logic ---
 
     def handle_weather_request(self):
         city = self.city_entry.get().strip()
@@ -90,14 +97,14 @@ class WeatherApp:
 
         unit = self.unit_var.get()
         raw_data = self.weather_api.fetch_weather(city, units=unit)
+
         if raw_data:
             processed = self.processor.process_api_response(raw_data, units=unit)
-        
             if not processed:
                 messagebox.showerror("Processing Error", "Weather data format was invalid.")
                 return
 
-            self.weather_history.append(processed)  # Track history for stats
+            self.weather_history.append(processed)
 
             self.result_label.config(text=(
                 f"{processed['city']}:\n"
@@ -107,7 +114,6 @@ class WeatherApp:
                 f"Humidity: {processed['humidity']}%\n"
                 f"Wind: {processed['wind_speed']}"
             ))
-
         else:
             messagebox.showerror("Error", "Could not fetch weather data.")
 
@@ -123,19 +129,14 @@ class WeatherApp:
             f"Max: {stats['maximum']}°F\n"
             f"Trend: {stats['trend'].capitalize()}"
         ))
-    
-    #Export history function
+
     def export_history(self):
         if not self.weather_history:
             messagebox.showinfo("Export", "No data to export.")
             return
-        
-        from tkinter import filedialog
+
         os.makedirs("data", exist_ok=True)
-
-        # Generate filename based on current date
         default_filename = f"weather_{datetime.now().strftime('%Y-%m-%d')}.csv"
-
         file_path = filedialog.asksaveasfilename(
             initialdir=os.path.abspath("data"),
             initialfile=default_filename,
@@ -150,32 +151,32 @@ class WeatherApp:
                 messagebox.showinfo("Export Successful", f"Weather history saved to:\n{file_path}")
             except Exception as e:
                 messagebox.showerror("Export Failed", f"An error occurred: {e}")
-    
-    # Theme switcher function
+
+    # --- Theme Handling ---
+
     def toggle_theme(self):
         self.current_theme = "dark" if self.current_theme == "light" else "light"
         self.apply_theme()
         self.save_theme_preference()
 
-    # Apply theme function
     def apply_theme(self):
         theme = self.themes[self.current_theme]
-
-        # Root window
         self.root.configure(bg=theme["bg"])
 
-        # Change all relevant widgets
-        for widget in self.root.winfo_children():
-            if isinstance(widget, tk.Label):
-                widget.configure(bg=theme["bg"], fg=theme["fg"])
-            elif isinstance(widget, tk.Entry):
-                widget.configure(bg=theme["entry_bg"], fg=theme["entry_fg"], insertbackground=theme["entry_fg"])
-            elif isinstance(widget, tk.Button):
-                widget.configure(bg=theme["button_bg"], fg=theme["button_fg"], activebackground=theme["bg"],activeforeground=theme["fg"])
+        for frame in [self.weather_frame, self.stats_frame, self.export_frame, self.settings_frame]:
+            frame.configure(bg=theme["bg"])
+            for widget in frame.winfo_children():
+                if isinstance(widget, tk.Label) or isinstance(widget, tk.Entry):
+                    widget.configure(bg=theme["entry_bg"], fg=theme["entry_fg"])
+                elif isinstance(widget, tk.Button):
+                    widget.configure(
+                        bg=theme["button_bg"], fg=theme["button_fg"],
+                        activebackground=theme["bg"], activeforeground=theme["fg"]
+                    )
 
     def save_theme_preference(self):
-        os.makedirs("data", exist_ok=True)
         try:
+            os.makedirs("data", exist_ok=True)
             with open("data/theme_config.txt", "w") as f:
                 f.write(self.current_theme)
         except Exception as e:
@@ -188,8 +189,7 @@ class WeatherApp:
                 if saved_theme in self.themes:
                     self.current_theme = saved_theme
         except FileNotFoundError:
-            pass # Default to light theme
-
+            pass  # Use default
 
     def run(self):
         self.root.mainloop()
@@ -199,5 +199,3 @@ class WeatherApp:
 if __name__ == "__main__":
     app = WeatherApp()
     app.run()
-
-
