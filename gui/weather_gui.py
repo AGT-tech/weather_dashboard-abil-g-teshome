@@ -5,8 +5,11 @@ from config import Config
 from core.processor import DataProcessor
 from datetime import datetime
 import os
+import json
 
 class WeatherApp:
+    ACHIEVEMENTS_FILE = "achievements.json"
+
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Weather Dashboard")
@@ -14,7 +17,7 @@ class WeatherApp:
 
         # Load config and create WeatherAPI instance
         config = Config.from_environment()
-        self.weather_api = WeatherAPI(api_key=config.api_key)  # timeout=config.request_timeout)
+        self.weather_api = WeatherAPI(api_key=config.api_key)
 
         # Instantiate WeatherProcessor
         self.processor = DataProcessor()
@@ -42,6 +45,18 @@ class WeatherApp:
         }
 
         self.load_theme_preference()
+
+        # Achievement tracking
+        self.achievements = {
+            "first_search": False,
+            "five_cities": False,
+            "temp_extreme": False,
+            "exported_history": False,
+            "used_both_units": {"imperial": False, "metric": False}
+        }
+        self.searched_cities = set()
+        self.load_achievements()
+
         self.setup_ui()
         self.apply_theme()
 
@@ -69,7 +84,7 @@ class WeatherApp:
         main_frame = tk.Frame(self.root)
         main_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Weather output frame (rounded style)
+        # Weather output frame
         self.weather_frame = tk.Frame(main_frame, bd=2, relief="groove", padx=15, pady=15)
         self.weather_frame.pack(side="left", fill="both", expand=True, padx=(0,10), pady=5)
 
@@ -83,22 +98,31 @@ class WeatherApp:
         self.tab_control = ttk.Notebook(stats_frame)
         self.tab_control.pack(fill="both", expand=True)
 
-        # Tab 1 - Temperature Stats with a canvas for graph
+        # Tab 1 - Temperature Stats
         temp_tab = ttk.Frame(self.tab_control)
         self.tab_control.add(temp_tab, text="Temperature Stats")
 
         self.stats_label = tk.Label(temp_tab, text="Statistics will appear here", font=("Helvetica", 14), justify="center")
         self.stats_label.pack(pady=10)
 
-        # Canvas placeholder for graph
         self.stats_canvas = tk.Canvas(temp_tab, width=300, height=250, bg="white", bd=1, relief="sunken")
         self.stats_canvas.pack(padx=10, pady=10)
+
+        # Tab 2 - Achievements
+        achievements_tab = ttk.Frame(self.tab_control)
+        self.tab_control.add(achievements_tab, text="Achievements")
+
+        self.achievements_text = tk.Text(achievements_tab, state="disabled", width=40, height=15, wrap="word", font=("Helvetica", 12))
+        self.achievements_text.pack(padx=10, pady=10, fill="both", expand=True)
 
         # Export button at bottom centered
         bottom_frame = tk.Frame(self.root)
         bottom_frame.pack(fill="x", pady=10)
         export_btn = tk.Button(bottom_frame, text="Export Weather History to CSV", command=self.export_history)
         export_btn.pack()
+
+        # Initial achievements display update
+        self.update_achievements_display()
 
     def handle_weather_request(self):
         city = self.city_entry.get().strip()
@@ -110,14 +134,34 @@ class WeatherApp:
         raw_data = self.weather_api.fetch_weather(city, units=unit)
         if raw_data:
             processed = self.processor.process_api_response(raw_data, units=unit)
-
             if not processed:
                 messagebox.showerror("Processing Error", "Weather data format was invalid.")
                 return
 
             self.weather_history.append(processed)
 
-            # Rounded display of weather info
+            # Achievements logic
+            if not self.achievements["first_search"]:
+                self.achievements["first_search"] = True
+                self.notify_achievement("First search completed!")
+
+            self.searched_cities.add(processed['city'])
+            if len(self.searched_cities) >= 5 and not self.achievements["five_cities"]:
+                self.achievements["five_cities"] = True
+                self.notify_achievement("You have searched for 5 different cities!")
+
+            temp = processed['temperature']
+            if (temp >= 100 or temp <= 32) and not self.achievements["temp_extreme"]:
+                self.achievements["temp_extreme"] = True
+                self.notify_achievement("You discovered an extreme temperature!")
+
+            self.achievements["used_both_units"][unit] = True
+            if all(self.achievements["used_both_units"].values()):
+                self.notify_achievement("You've used both imperial and metric units!")
+
+            self.save_achievements()
+            self.update_achievements_display()
+
             weather_text = (
                 f"{processed['city']}\n"
                 f"{processed['description'].title()}\n"
@@ -128,7 +172,6 @@ class WeatherApp:
             )
             self.weather_label.config(text=weather_text)
 
-            # Update stats tab as well
             self.update_statistics()
         else:
             messagebox.showerror("Error", "Could not fetch weather data.")
@@ -147,7 +190,6 @@ class WeatherApp:
         )
         self.stats_label.config(text=stats_text)
 
-        # Simple bar graph for temperatures on canvas
         self.stats_canvas.delete("all")
         temps = [entry['temperature'] for entry in self.weather_history]
         if not temps:
@@ -160,16 +202,18 @@ class WeatherApp:
         bar_width = max(10, width // len(temps))
         margin = 10
 
-        # Normalize temps to canvas height
         def norm(temp):
             return height - margin - ((temp - min_temp) / (max_temp - min_temp + 1e-5) * (height - 2*margin))
+
+        colors = ["skyblue", "lightgreen", "orange", "violet", "pink", "lightcoral"]
 
         for i, temp in enumerate(temps):
             x0 = margin + i * bar_width
             y0 = norm(temp)
             x1 = x0 + bar_width - 2
             y1 = height - margin
-            self.stats_canvas.create_rectangle(x0, y0, x1, y1, fill="skyblue")
+            color = colors[i % len(colors)]
+            self.stats_canvas.create_rectangle(x0, y0, x1, y1, fill=color)
             self.stats_canvas.create_text(x0 + bar_width/2 - 1, y0 - 10, text=str(temp), font=("Helvetica", 9), anchor="s")
 
     def export_history(self):
@@ -177,7 +221,6 @@ class WeatherApp:
             messagebox.showinfo("Export", "No data to export.")
             return
 
-        import os
         os.makedirs("data", exist_ok=True)
 
         default_filename = f"weather_{datetime.now().strftime('%Y-%m-%d')}.csv"
@@ -193,6 +236,13 @@ class WeatherApp:
             try:
                 self.processor.export_to_csv(self.weather_history, file_path)
                 messagebox.showinfo("Export Successful", f"Weather history saved to:\n{file_path}")
+
+                if not self.achievements["exported_history"]:
+                    self.achievements["exported_history"] = True
+                    self.notify_achievement("Weather history exported successfully!")
+                    self.save_achievements()
+                    self.update_achievements_display()
+
             except Exception as e:
                 messagebox.showerror("Export Failed", f"An error occurred: {e}")
 
@@ -202,52 +252,89 @@ class WeatherApp:
         self.save_theme_preference()
 
     def apply_theme(self):
-        theme = self.themes[self.current_theme]
-        self.root.configure(bg=theme["bg"])
-        self._apply_theme_recursive(self.root, theme)
+        t = self.themes[self.current_theme]
+        self.root.configure(bg=t["bg"])
 
-    def _apply_theme_recursive(self, widget, theme):
-        # Safely apply bg/fg only to widgets that support it
-        # Use widget.winfo_class() to differentiate widget types
-        cls = widget.winfo_class()
-        try:
-            if cls in ("Frame", "TFrame", "Labelframe"):
-                widget.configure(bg=theme["bg"])
-            elif cls in ("Label", "TLabel"):
-                widget.configure(bg=theme["bg"], fg=theme["fg"])
-            elif cls in ("Button", "TButton"):
-                widget.configure(bg=theme["button_bg"], fg=theme["button_fg"],
-                                 activebackground=theme["bg"], activeforeground=theme["fg"])
-            elif cls == "Entry":
-                widget.configure(bg=theme["entry_bg"], fg=theme["entry_fg"], insertbackground=theme["entry_fg"])
-            elif cls == "Canvas":
-                widget.configure(bg=theme["bg"])
-        except tk.TclError:
-            # Some ttk widgets do not support bg config, just skip
-            pass
+        # Apply theme recursively
+        def apply_recursive(widget):
+            for w in widget.winfo_children():
+                if isinstance(w, (tk.Label, tk.Button)):
+                    w.configure(bg=t["bg"], fg=t["fg"])
+                if isinstance(w, tk.Entry):
+                    w.configure(bg=t["entry_bg"], fg=t["entry_fg"], insertbackground=t["fg"])
+                if isinstance(w, tk.Frame):
+                    w.configure(bg=t["bg"])
+                apply_recursive(w)
 
-        for child in widget.winfo_children():
-            self._apply_theme_recursive(child, theme)
+        apply_recursive(self.root)
+
+        self.stats_canvas.configure(bg="white" if self.current_theme == "light" else "#3C3F41")
+        self.weather_label.configure(bg=t["bg"], fg=t["fg"])
+        self.stats_label.configure(bg=t["bg"], fg=t["fg"])
+
+        self.achievements_text.configure(
+            bg=t["entry_bg"], fg=t["entry_fg"], insertbackground=t["fg"]
+        )
 
     def save_theme_preference(self):
         try:
-            with open("theme_config.txt", "w") as f:
-                f.write(self.current_theme)
+            with open("theme_pref.json", "w") as f:
+                json.dump({"theme": self.current_theme}, f)
         except Exception as e:
-            print(f"Error saving theme: {e}")
+            print(f"Error saving theme preference: {e}")
 
     def load_theme_preference(self):
         try:
-            with open("theme_config.txt", "r") as f:
-                saved_theme = f.read().strip()
-                if saved_theme in self.themes:
-                    self.current_theme = saved_theme
+            with open("theme_pref.json", "r") as f:
+                data = json.load(f)
+                self.current_theme = data.get("theme", "light")
         except FileNotFoundError:
-            pass  # default to light theme
+            self.current_theme = "light"
+
+    def load_achievements(self):
+        try:
+            with open(self.ACHIEVEMENTS_FILE, "r") as f:
+                data = json.load(f)
+                self.achievements = data.get("achievements", self.achievements)
+                self.searched_cities = set(data.get("searched_cities", []))
+        except FileNotFoundError:
+            pass
+
+    def save_achievements(self):
+        data = {
+            "achievements": self.achievements,
+            "searched_cities": list(self.searched_cities)
+        }
+        try:
+            with open(self.ACHIEVEMENTS_FILE, "w") as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            print(f"Error saving achievements: {e}")
+
+    def notify_achievement(self, message):
+        messagebox.showinfo("Achievement Unlocked!", message)
+
+    def update_achievements_display(self):
+        self.achievements_text.configure(state="normal")
+        self.achievements_text.delete(1.0, tk.END)
+
+        achv = self.achievements
+        used_units = achv["used_both_units"]
+
+        lines = [
+            f"First Search: {'✅' if achv['first_search'] else '❌'}",
+            f"Five Cities Searched: {'✅' if achv['five_cities'] else '❌'}",
+            f"Extreme Temperature Seen: {'✅' if achv['temp_extreme'] else '❌'}",
+            f"Weather History Exported: {'✅' if achv['exported_history'] else '❌'}",
+            f"Used Imperial Units: {'✅' if used_units['imperial'] else '❌'}",
+            f"Used Metric Units: {'✅' if used_units['metric'] else '❌'}",
+        ]
+
+        self.achievements_text.insert(tk.END, "\n".join(lines))
+        self.achievements_text.configure(state="disabled")
 
     def run(self):
         self.root.mainloop()
-
 
 # Run the app
 if __name__ == "__main__":
