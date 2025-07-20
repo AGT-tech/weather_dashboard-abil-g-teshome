@@ -132,8 +132,13 @@ class WeatherApp:
         
         from tkinter import filedialog
         os.makedirs("data", exist_ok=True)
+
+        # Generate filename based on current date
+        default_filename = f"weather_{datetime.now().strftime('%Y-%m-%d')}.csv"
+
         file_path = filedialog.asksaveasfilename(
-            initialdir=os.path.abspath"data",
+            initialdir=os.path.abspath("data"),
+            initialfile=default_filename,
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv")],
             title="Save Weather History"
