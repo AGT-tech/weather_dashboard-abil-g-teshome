@@ -98,7 +98,7 @@ class WeatherApp:
             return
         
         from tkinter import filedialog
-        file_path = filedialog.asksaceasfilename(
+        file_path = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv")],
             title="Save Weather History"
