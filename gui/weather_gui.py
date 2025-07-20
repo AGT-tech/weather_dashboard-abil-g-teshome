@@ -18,6 +18,29 @@ class WeatherApp:
         self.processor = DataProcessor()
         self.weather_history = []
 
+        # Theme handling
+        self.current_theme = "light"
+        self.themes = {
+            "light": {
+                "bg": "#FFFFFF",
+                "fg": "#000000",
+                "entry_bg": "#FFFFFF",
+                "entry_fg": "#000000",
+                "button_bg": "#E0E0E0",
+                "button_fg": "#000000"
+            },
+            "dark": {
+                "bg": "#2E2E2E",
+                "fg": "#FFFFFF",
+                "entry_bg": "#3C3F41",
+                "entry_fg": "#FFFFFF",
+                "button_bg": "#555555",
+                "button_fg": "#FFFFFF"
+            }
+        }
+
+        self.load_theme_preference()
+
         # Setup UI
         self.setup_ui()
 
@@ -48,6 +71,14 @@ class WeatherApp:
         #Export to csv
         export_btn = tk.Button(self.root, text="Export to CSV", command=self.export_history)
         export_btn.pack(pady=5)
+
+        # Theme switcher button
+        theme_btn = tk.Button(self.root, text="Switch Theme", command=self.toggle_theme)
+        theme_btn.pack(pady=5)
+
+        # Apply the current theme to all widgets
+        self.apply_theme()
+
 
     def handle_weather_request(self):
         city = self.city_entry.get().strip()
@@ -110,6 +141,45 @@ class WeatherApp:
                 messagebox.showinfo("Export Successful", f"Weather history saved to:\n{file_path}")
             except Exception as e:
                 messagebox.showerror("Export Failed", f"An error occurred: {e}")
+    
+    # Theme switcher function
+    def toggle_theme(self):
+        self.current_theme = "dark" if self.current_theme == "light" else "light"
+        self.apply_theme()
+        self.save_theme_preference()
+
+    # Apply theme function
+    def apply_theme(self):
+        theme = self.themes[self.current_theme]
+
+        # Root window
+        self.root.configure(bg=theme["bg"])
+
+        # Change all relevant widgets
+        for widget in self.root.winfo_children():
+            if isinstance(widget, tk.Label):
+                widget.configure(bg=theme["bg"], fg=theme["fg"])
+            elif isinstance(widget, tk.Entry):
+                widget.configure(bg=theme["entry_bg"], fg=theme["entry_fg"], insertbackground=theme["entry_fg"])
+            elif isinstance(widget, tk.Button):
+                widget.configure(bg=theme["button_bg"], fg=theme["button_fg"], activebackground=theme["bg"],activeforeground=theme["fg"])
+
+    def save_theme_preference(self):
+        try:
+            with open("theme_config.txt", "w") as f:
+                f.write(self.current_theme)
+        except Exception as e:
+            print(f"Error saving theme: {e}")
+
+    def load_theme_preference(self):
+        try:
+            with open("theme_config.txt", "r") as f:
+                saved_theme = f.read().strip()
+                if saved_theme in self.themes:
+                    self.current_theme = saved_theme
+        except FileNotFoundError:
+            pass # Default to light theme
+
 
     def run(self):
         self.root.mainloop()
