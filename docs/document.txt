@@ -153,7 +153,17 @@ add, commit and push to origin main
 
 ===================================
 
+work on the layout of the gui 
+did multiple commits and pushes
+add achievement System
 
+--------------------------------------
+add, commit and push to origin main
+    gui/weather_gui.py
+    docs/document.txt
+    core/processor.py
+
+===================================
 
 
 
