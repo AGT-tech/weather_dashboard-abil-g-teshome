@@ -1,11 +1,7 @@
-"""Data processing and database management module"""
+"""Data processing """
 
 from typing import Dict, List
 import statistics
-import sqlite3
-from datetime import datetime
-import os
-import json
 
 
 class DataProcessor:
@@ -82,107 +78,4 @@ class DataProcessor:
             return temp
         return (temp - 32) * 5 / 9 if to_unit == "metric" else (temp * 9 / 5) + 32
 
-    def export_to_csv(self, history, file_path=""):
-        import csv
-
-        if not history:
-            return
-
-        keys = history[0].keys()
-        with open(file_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=keys)
-            writer.writeheader()
-            writer.writerows(history)
-
-
-class WeatherDB:
-    """Handles SQLite DB operations for the weather app"""
-
-    def __init__(self, db_path="data/weather_app.db"):
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self.conn = sqlite3.connect(db_path)
-        self.create_tables()
-
-    def create_tables(self):
-        c = self.conn.cursor()
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS weather_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                city TEXT,
-                temperature INTEGER,
-                feels_like INTEGER,
-                humidity INTEGER,
-                description TEXT,
-                wind_speed TEXT,
-                unit TEXT,
-                timestamp TEXT
-            )
-        ''')
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS preferences (
-                key TEXT PRIMARY KEY,
-                value TEXT
-            )
-        ''')
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS achievements (
-                name TEXT PRIMARY KEY,
-                value TEXT
-            )
-        ''')
-
-        self.conn.commit()
-
-    def save_weather_entry(self, entry: Dict):
-        c = self.conn.cursor()
-        c.execute('''
-            INSERT INTO weather_history (city, temperature, feels_like, humidity, description, wind_speed, unit, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            entry.get('city'),
-            entry.get('temperature'),
-            entry.get('feels_like'),
-            entry.get('humidity'),
-            entry.get('description'),
-            entry.get('wind_speed'),
-            entry.get('unit'),
-            datetime.now().isoformat()
-        ))
-        self.conn.commit()
-
-    def get_weather_history(self) -> List[Dict]:
-        c = self.conn.cursor()
-        c.execute('SELECT city, temperature, feels_like, humidity, description, wind_speed, unit, timestamp FROM weather_history ORDER BY id')
-        rows = c.fetchall()
-        return [dict(zip(['city', 'temperature', 'feels_like', 'humidity', 'description', 'wind_speed', 'unit', 'timestamp'], row)) for row in rows]
-
-    def save_preference(self, key: str, value: str):
-        c = self.conn.cursor()
-        c.execute('REPLACE INTO preferences (key, value) VALUES (?, ?)', (key, value))
-        self.conn.commit()
-
-    def load_preference(self, key: str):
-        c = self.conn.cursor()
-        c.execute('SELECT value FROM preferences WHERE key = ?', (key,))
-        row = c.fetchone()
-        return row[0] if row else None
-
-    def load_preferences(self) -> Dict[str, str]:
-        c = self.conn.cursor()
-        c.execute('SELECT key, value FROM preferences')
-        rows = c.fetchall()
-        return {key: value for key, value in rows}
-
-    def save_achievement(self, name: str, value: str):
-        c = self.conn.cursor()
-        c.execute('REPLACE INTO achievements (name, value) VALUES (?, ?)', (name, value))
-        self.conn.commit()
-
-    def load_achievements(self) -> Dict[str, str]:
-        c = self.conn.cursor()
-        c.execute('SELECT name, value FROM achievements')
-        rows = c.fetchall()
-        return {name: value for name, value in rows}
-
-    def close(self):
-        self.conn.close()
+    
