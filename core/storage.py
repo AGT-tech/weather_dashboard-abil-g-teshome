@@ -1,8 +1,6 @@
-# storage.py
 import sqlite3
 import os
 from datetime import datetime
-import json
 import csv
 
 
@@ -94,7 +92,8 @@ class WeatherDB:
         rows = c.fetchall()
         return {name: value for name, value in rows}
 
-    def export_to_csv(self, history: list[dict], file_path: str):
+    def export_to_csv(self, file_path: str):
+        history = self.get_weather_history()
         if not history:
             return
         keys = history[0].keys()
