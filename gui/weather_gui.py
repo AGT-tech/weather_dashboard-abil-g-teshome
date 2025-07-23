@@ -149,20 +149,20 @@ class WeatherApp:
         self.handle_weather_request()
 
     def handle_weather_request(self):
-        """
-        Fetch weather data from API for the city entered, process and display it,
-        update history, statistics, and check for any new achievements.
-        """
         city = self.city_entry.get().strip()
         if not city or city == "Enter City Name":
             messagebox.showerror("Error", "Please enter a city name.")
             return
 
         units = self.unit_var.get()
-        data = self.weather_api.fetch_weather(city, units)
+        data, error = self.weather_api.fetch_weather(city, units)
 
-        if data is None or "main" not in data:
-            messagebox.showerror("Error", "Could not fetch weather data. Please check the city name or try again.")
+        if error:
+            messagebox.showerror("Weather Error", error)
+            return
+
+        if not data or "main" not in data:
+            messagebox.showerror("Error", "Could not fetch weather data.")
             return
 
         processed = self.processor.process_api_response(data, units)
@@ -175,6 +175,7 @@ class WeatherApp:
         self.update_statistics()
         self.update_history_display()
         self.check_achievements(processed, city, units)
+
 
     def display_weather(self, data):
         """Update the weather display label with the current data."""
