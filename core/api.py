@@ -1,39 +1,57 @@
+import requests
 from dataclasses import dataclass
-from typing import Optional, Dict
-import requests  
+from typing import Optional, Dict, Tuple
+import logging
 
-# Use @dataclass to automatically generate __init__, __repr__, etc.
+
 @dataclass
 class WeatherAPI:
-    api_key: str                            # OpenWeatherMap API key
-    timeout: int = 10                       # Request timeout in seconds (default is 10)
-    base_url: str = "http://api.openweathermap.org/data/2.5/weather"  # Weather API endpoint
+    api_key: str
+    timeout: int = 10
+    base_url: str = "http://api.openweathermap.org/data/2.5/weather"
+    max_retries: int = 3
 
-    def fetch_weather(self, city: str, units: str = "imperial") -> Optional[Dict]:
+    def fetch_weather(self, city: str, units: str = "imperial") -> Tuple[Optional[Dict], Optional[str]]:
         """
-        Fetch current weather data for a given city using OpenWeatherMap API.
-
-        Args:
-            city (str): Name of the city (e.g., "London", "New York").
-            units (str): Unit system ('imperial' for Fahrenheit, 'metric' for Celsius).
+        Fetch current weather data from the OpenWeatherMap API.
 
         Returns:
-            Optional[Dict]: Parsed JSON response as a dictionary if successful, else None.
+            Tuple[Optional[Dict], Optional[str]]: (weather_data, error_message)
         """
-        try:
-            # Send GET request with city, API key, units, and timeout
-            response = requests.get(
-                self.base_url,
-                params={
-                    'q': city,
-                    'appid': self.api_key,
-                    'units': units     # Use 'imperial' for °F, 'metric' for °C
-                },
-                timeout=self.timeout
-            )
-            response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
-            return response.json()       # Convert response to Python dict
-        except requests.RequestException as e:
-            # Log any request or connection errors
-            print(f"WeatherAPI Error: {e}")
-            return None  # Return None on failure to indicate error
+        params = {
+            'q': city,
+            'appid': self.api_key,
+            'units': units
+        }
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                response = requests.get(self.base_url, params=params, timeout=self.timeout)
+                response.raise_for_status()
+                return response.json(), None
+
+            except requests.exceptions.HTTPError as e:
+                if response.status_code == 401:
+                    return None, "Invalid API key. Check your credentials."
+                elif response.status_code == 404:
+                    return None, "City not found. Please check the city name."
+                elif response.status_code == 429:
+                    return None, "API rate limit exceeded. Please wait and try again."
+                else:
+                    logging.error(f"HTTPError ({response.status_code}): {response.text}")
+                    return None, f"Unexpected error: {response.status_code}"
+
+            except requests.exceptions.Timeout:
+                logging.warning(f"Timeout attempt {attempt} for city '{city}'")
+                if attempt == self.max_retries:
+                    return None, "Request timed out. Please check your connection."
+
+            except requests.exceptions.ConnectionError:
+                logging.error("Connection error occurred.")
+                return None, "Network connection error. Please try again."
+
+            except requests.RequestException as e:
+                logging.exception("General request error:")
+                return None, "An unknown error occurred. Please try again later."
+
+        return None, "Failed after multiple attempts."
