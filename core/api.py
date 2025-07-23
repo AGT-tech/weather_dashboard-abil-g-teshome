@@ -1,7 +1,8 @@
 import requests
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Dict, Tuple
 import logging
+import time
 
 
 @dataclass
@@ -10,14 +11,29 @@ class WeatherAPI:
     timeout: int = 10
     base_url: str = "http://api.openweathermap.org/data/2.5/weather"
     max_retries: int = 3
+    cache_duration: int = 600  # Cache validity in seconds (10 minutes)
+    cache: Dict[Tuple[str, str], Tuple[Dict, float]] = field(default_factory=dict)
 
     def fetch_weather(self, city: str, units: str = "imperial") -> Tuple[Optional[Dict], Optional[str]]:
         """
-        Fetch current weather data from the OpenWeatherMap API.
+        Fetch current weather data from the OpenWeatherMap API with caching.
 
         Returns:
             Tuple[Optional[Dict], Optional[str]]: (weather_data, error_message)
         """
+        cache_key = (city.lower(), units)
+        current_time = time.time()
+
+        # Return cached response if valid
+        if cache_key in self.cache:
+            cached_response, timestamp = self.cache[cache_key]
+            if current_time - timestamp < self.cache_duration:
+                logging.info(f"Returning cached weather data for '{city}'")
+                return cached_response, None
+            else:
+                # Cache expired
+                del self.cache[cache_key]
+
         params = {
             'q': city,
             'appid': self.api_key,
@@ -28,7 +44,11 @@ class WeatherAPI:
             try:
                 response = requests.get(self.base_url, params=params, timeout=self.timeout)
                 response.raise_for_status()
-                return response.json(), None
+                data = response.json()
+
+                # Cache the successful response
+                self.cache[cache_key] = (data, current_time)
+                return data, None
 
             except requests.exceptions.HTTPError as e:
                 if response.status_code == 401:
