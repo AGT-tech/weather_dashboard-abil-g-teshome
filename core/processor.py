@@ -1,8 +1,6 @@
 """Data processing"""
 
 from typing import Dict, List
-import statistics
-
 
 class DataProcessor:
     """Processes and analyzes weather data"""
@@ -41,71 +39,6 @@ class DataProcessor:
             print(f"Error processing data: {e}")
             return {}
 
-    def calculate_statistics(self, history: List[Dict]) -> Dict:
-        """
-        Compute statistical summaries (average, min, max) from weather history.
-
-        Args:
-            history (List[Dict]): List of processed weather records.
-
-        Returns:
-            Dict: Statistics including average, min, max temperature, and trend.
-        """
-        if not history:
-            return {}
-
-        # Extract temperature values from history
-        temps = [h['temperature'] for h in history]
-
-        # Determine overall trend (rising, falling, stable)
-        trend = self.detect_trend(temps)
-
-        return {
-            'average': round(statistics.mean(temps), 1),
-            'minimum': min(temps),
-            'maximum': max(temps),
-            'trend': trend
-        }
-
-    @staticmethod
-    def detect_trend(temps: List[int]) -> str:
-        """
-        Determine the trend of temperatures using simple linear regression.
-
-        Args:
-            temps (List[int]): List of temperature values.
-
-        Returns:
-            str: One of 'rising', 'falling', or 'stable'.
-        """
-        n = len(temps)
-        if n < 2:
-            return "stable"  # Not enough data to detect a trend
-
-        # Prepare data for linear regression (x = index, y = temperature)
-        x = list(range(n))
-        y = temps
-
-        mean_x = sum(x) / n
-        mean_y = sum(y) / n
-
-        # Compute slope of best-fit line (simple linear regression)
-        numerator = sum((xi - mean_x) * (yi - mean_y) for xi, yi in zip(x, y))
-        denominator = sum((xi - mean_x) ** 2 for xi in x)
-
-        if denominator == 0:
-            return "stable"
-
-        slope = numerator / denominator
-
-        # Interpret slope: small change = stable; otherwise rising/falling
-        if abs(slope) < 0.1:
-            return "stable"
-        elif slope > 0:
-            return "rising"
-        else:
-            return "falling"
-
     @staticmethod
     def convert_temperature(temp, from_unit, to_unit):
         """
@@ -123,3 +56,7 @@ class DataProcessor:
             return temp
         # Convert based on target unit
         return (temp - 32) * 5 / 9 if to_unit == "metric" else (temp * 9 / 5) + 32
+    
+
+
+
