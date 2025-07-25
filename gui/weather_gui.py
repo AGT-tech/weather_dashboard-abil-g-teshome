@@ -4,6 +4,10 @@ from core.api import WeatherAPI
 from config import Config
 from core.processor import DataProcessor
 from core.storage import WeatherDB
+from features.statistics_manager import StatisticsManager
+from features.theme_manager import ThemeManager
+from features.trend_manager import TrendDetector
+from features.achievement_manager import AchievementManager
 from datetime import datetime
 import os
 import json
@@ -22,40 +26,17 @@ class WeatherApp:
         config = Config.from_environment()
         self.weather_api = WeatherAPI(api_key=config.api_key)
         self.processor = DataProcessor()
+        self.theme_manager = ThemeManager(self.root)
 
         self.db = WeatherDB()
         self.weather_history = self.db.get_weather_history()
 
-        # Track achievements and user progress
-        self.achievements = {
-            "first_search": False,
-            "five_cities": False,
-            "temp_extreme": False,
-            "exported_history": False,
-            "used_both_units": {"imperial": False, "metric": False}
-        }
+        #
         self.searched_cities = set()
-        self.load_achievements()
-
-        # Theme setup with light/dark options
-        self.current_theme = "light"
-        self.themes = {
-            "light": {
-                "bg": "#FFFFFF", "fg": "#000000",
-                "entry_bg": "#FFFFFF", "entry_fg": "#000000",
-                "button_bg": "#E0E0E0", "button_fg": "#000000"
-            },
-            "dark": {
-                "bg": "#2E2E2E", "fg": "#FFFFFF",
-                "entry_bg": "#3C3F41", "entry_fg": "#FFFFFF",
-                "button_bg": "#555555", "button_fg": "#FFFFFF"
-            }
-        }
-        self.load_theme_preference()
 
         # Build and display the UI
         self.setup_ui()
-        self.apply_theme()
+        self.theme_manager.apply_theme()
 
     def setup_ui(self):
         """Create and place all UI components/widgets in the main window."""
@@ -82,7 +63,7 @@ class WeatherApp:
         fetch_btn = tk.Button(top_frame, text="Get Weather", command=self.handle_weather_request, font=("Helvetica", 14))
         fetch_btn.pack(side="left", padx=5)
 
-        theme_btn = tk.Button(top_frame, text="Switch Theme", command=self.toggle_theme)
+        theme_btn = tk.Button(top_frame, text="Switch Theme", command=self.theme_manager.toggle_theme)
         theme_btn.pack(side="right", padx=5)
 
         # Main frames for weather display and statistics
@@ -130,7 +111,12 @@ class WeatherApp:
 
         self.achievements_listbox = tk.Listbox(achievements_frame, height=6, font=("Helvetica", 12))
         self.achievements_listbox.pack(fill="x")
-        self.update_achievements_display()
+        # self.update_achievements_display()
+        self.achievement_manager = AchievementManager(
+            self.achievements_listbox,
+            self.searched_cities
+        )
+
 
     def clear_placeholder(self, event):
         """Clear placeholder text when the entry field gains focus."""
@@ -148,33 +134,46 @@ class WeatherApp:
         """Handle Enter key press event to trigger weather request."""
         self.handle_weather_request()
 
-    def handle_weather_request(self):
+    def get_valid_city(self):
         city = self.city_entry.get().strip()
         if not city or city == "Enter City Name":
-            messagebox.showerror("Error", "Please enter a city name.")
+            self.show_error("Please enter a city name.")
+            return None
+        return city
+
+    def show_error(self, message):
+        messagebox.showerror("Error", message)
+
+    def update_ui_with_weather(self, processed, city, units):
+        self.display_weather(processed)
+        self.save_weather_entry(processed)
+        self.update_statistics()
+        self.update_history_display()
+        self.achievement_manager.check_achievements(processed, city, units)
+
+    def handle_weather_request(self):
+        city = self.get_valid_city()
+        if city is None:
             return
 
         units = self.unit_var.get()
         data, error = self.weather_api.fetch_weather(city, units)
 
         if error:
-            messagebox.showerror("Weather Error", error)
+            self.show_error(error)
             return
 
         if not data or "main" not in data:
-            messagebox.showerror("Error", "Could not fetch weather data.")
+            self.show_error("Could not fetch weather data.")
             return
 
         processed = self.processor.process_api_response(data, units)
         if not processed:
-            messagebox.showerror("Error", "Error processing weather data.")
+            self.show_error("Error processing weather data.")
             return
 
-        self.display_weather(processed)
-        self.save_weather_entry(processed)
-        self.update_statistics()
-        self.update_history_display()
-        self.check_achievements(processed, city, units)
+        self.update_ui_with_weather(processed, city, units)
+
 
 
     def display_weather(self, data):
@@ -205,15 +204,18 @@ class WeatherApp:
             self.stats_canvas.delete("all")
             return
 
-        stats = self.processor.calculate_statistics(history)
+        stats = StatisticsManager.calculate_statistics(history)
+        temps = [entry['temperature'] for entry in history]
+        trend = TrendDetector.detect_trend(temps)
+
         text = (
             f"Average Temp: {stats['average']}\n"
             f"Min Temp: {stats['minimum']}\n"
             f"Max Temp: {stats['maximum']}\n"
-            f"Trend: {stats['trend']}"
+            f"Trend: {trend.capitalize()}"
         )
         self.stats_label.config(text=text)
-        self.draw_trend_graph(history, stats['trend'])
+        self.draw_trend_graph(history, trend)
 
     def draw_trend_graph(self, history, trend):
         """Draw a line graph of temperature trend on the statistics canvas."""
@@ -273,136 +275,11 @@ class WeatherApp:
             messagebox.showinfo("Export", f"History exported to {file_path}")
 
             # Unlock achievement if not already unlocked
-            if not self.achievements["exported_history"]:
-                self.achievements["exported_history"] = True
-                self.save_achievements()
-                self.update_achievements_display()
-                messagebox.showinfo("Achievement Unlocked", "Exported your search history!")
+            self.achievement_manager.export_achievement()
+
         except Exception as e:
             messagebox.showerror("Export Error", f"Failed to export history: {e}")
 
-    def toggle_theme(self):
-        """Switch between light and dark theme and save the preference."""
-        self.current_theme = "dark" if self.current_theme == "light" else "light"
-        self.apply_theme()
-        self.save_theme_preference()
-
-    def apply_theme(self):
-        """Apply the current theme colors to all UI widgets."""
-        theme = self.themes[self.current_theme]
-        self.root.configure(bg=theme["bg"])
-
-        # Update colors for all children recursively
-        def recursive_color_update(widget):
-            for child in widget.winfo_children():
-                if isinstance(child, tk.Frame) or isinstance(child, tk.LabelFrame):
-                    child.configure(bg=theme["bg"])
-                elif isinstance(child, tk.Label):
-                    child.configure(bg=theme["bg"], fg=theme["fg"])
-                elif isinstance(child, tk.Button):
-                    child.configure(bg=theme["button_bg"], fg=theme["button_fg"], activebackground=theme["button_bg"])
-                elif isinstance(child, tk.Entry):
-                    child.configure(bg=theme["entry_bg"], fg=theme["entry_fg"], insertbackground=theme["entry_fg"])
-                elif isinstance(child, tk.Listbox):
-                    child.configure(bg=theme["entry_bg"], fg=theme["entry_fg"], selectbackground="#6A95FF")
-                elif isinstance(child, tk.Canvas):
-                    child.configure(bg=theme["bg"])
-                recursive_color_update(child)
-
-        recursive_color_update(self.root)
-
-    def load_theme_preference(self):
-        """Load the saved theme preference from a file, if it exists."""
-        try:
-            with open("data/theme_pref.json", "r") as f:
-                data = json.load(f)
-                if data.get("theme") in self.themes:
-                    self.current_theme = data["theme"]
-        except FileNotFoundError:
-            # Default theme is light if no preference saved
-            self.current_theme = "light"
-
-    def save_theme_preference(self):
-        """Save the current theme preference to a file."""
-        os.makedirs("data", exist_ok=True)
-        with open("data/theme_pref.json", "w") as f:
-            json.dump({"theme": self.current_theme}, f)
-
-    def load_achievements(self):
-        """Load achievements from a saved file, or initialize fresh achievements."""
-        try:
-            with open("data/achievements.json", "r") as f:
-                saved = json.load(f)
-                for key in self.achievements:
-                    if key in saved:
-                        self.achievements[key] = saved[key]
-        except FileNotFoundError:
-            # No saved achievements yet, start fresh
-            pass
-
-    def save_achievements(self):
-        """Save the current achievements state to a file."""
-        os.makedirs("data", exist_ok=True)
-        with open("data/achievements.json", "w") as f:
-            json.dump(self.achievements, f)
-
-    def update_achievements_display(self):
-        """Refresh the achievements listbox to show unlocked achievements."""
-        self.achievements_listbox.delete(0, tk.END)
-        achievement_texts = {
-            "first_search": "First Search Completed",
-            "five_cities": "Searched 5 Different Cities",
-            "temp_extreme": "Encountered Temperature Extremes",
-            "exported_history": "Exported Search History",
-            "used_both_units": "Used Both Imperial and Metric Units"
-        }
-        for key, unlocked in self.achievements.items():
-            if key == "used_both_units":
-                # Check if both units used
-                if unlocked["imperial"] and unlocked["metric"]:
-                    self.achievements_listbox.insert(tk.END, achievement_texts[key])
-            elif unlocked:
-                self.achievements_listbox.insert(tk.END, achievement_texts[key])
-
-    def check_achievements(self, data, city, units):
-        """
-        Check if the user unlocked any new achievements based on current search.
-        Update achievements and notify the user if unlocked.
-        """
-        unlocked_new = False
-
-        # Achievement: First search
-        if not self.achievements["first_search"]:
-            self.achievements["first_search"] = True
-            unlocked_new = True
-
-        # Achievement: Searched 5 different cities
-        self.searched_cities.add(city.lower())
-        if not self.achievements["five_cities"] and len(self.searched_cities) >= 5:
-            self.achievements["five_cities"] = True
-            unlocked_new = True
-
-        # Achievement: Encountered extreme temperatures (below 0 or above 100 F / 37.8 C)
-        temp = data["temperature"]
-        if units == "imperial":
-            if not self.achievements["temp_extreme"] and (temp < 0 or temp > 100):
-                self.achievements["temp_extreme"] = True
-                unlocked_new = True
-        else:
-            if not self.achievements["temp_extreme"] and (temp < -17.8 or temp > 37.8):
-                self.achievements["temp_extreme"] = True
-                unlocked_new = True
-
-        # Achievement: Used both units
-        self.achievements["used_both_units"][units] = True
-        if self.achievements["used_both_units"]["imperial"] and self.achievements["used_both_units"]["metric"]:
-            # Already handled in display, just save
-            pass
-
-        if unlocked_new:
-            self.save_achievements()
-            self.update_achievements_display()
-            messagebox.showinfo("Achievement Unlocked!", "You unlocked a new achievement!")
 
     def run(self):
         """Start the Tkinter main event loop."""
