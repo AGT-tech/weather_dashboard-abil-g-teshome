@@ -9,53 +9,51 @@ from features.theme_manager import ThemeManager
 from features.trend_manager import TrendDetector
 from features.achievement_manager import AchievementManager
 from datetime import datetime
+from PIL import Image, ImageTk  
 import os
-import json
 
 
 class WeatherApp:
     def __init__(self):
-        """
-        Initialize the WeatherApp GUI, load configuration, API, processor,
-        database, achievements, theme preferences, and setup the UI.
-        """
+        """Initialize the WeatherApp GUI and all supporting components."""
         self.root = tk.Tk()
+        self.root.configure(bg="orange")
         self.root.title("Weather Dashboard")
         self.root.geometry("900x600")
 
         config = Config.from_environment()
-        self.weather_api = WeatherAPI(api_key=config.api_key)
+        self.weather_api = WeatherAPI(
+            api_key=config.api_key,
+            timeout=config.request_timeout
+            )
         self.processor = DataProcessor()
         self.theme_manager = ThemeManager(self.root)
-
         self.db = WeatherDB()
         self.weather_history = self.db.get_weather_history()
-
-        #
         self.searched_cities = set()
 
-        # Build and display the UI
         self.setup_ui()
         self.theme_manager.apply_theme()
 
     def setup_ui(self):
-        """Create and place all UI components/widgets in the main window."""
+        """Set up the full user interface."""
+        self.setup_top_frame()
+        self.setup_main_frame()
+        self.setup_history_frame()
+        self.setup_achievements_frame()
+
+    def setup_top_frame(self):
         top_frame = tk.Frame(self.root)
         top_frame.pack(fill="x", padx=10, pady=10)
 
         self.city_entry = tk.Entry(top_frame, font=("Helvetica", 14))
         self.city_entry.pack(side="left", padx=5)
-
-        # Insert placeholder text and set placeholder color
         self.city_entry.insert(0, "Enter City Name")
         self.city_entry.config(fg="grey")
-
-        # Bind focus and keyboard events to handle placeholder and enter key
         self.city_entry.bind("<FocusIn>", self.clear_placeholder)
         self.city_entry.bind("<FocusOut>", self.restore_placeholder)
         self.city_entry.bind("<Return>", self.enter_pressed)
 
-        # Dropdown for units (imperial or metric)
         self.unit_var = tk.StringVar(value="imperial")
         unit_dropdown = ttk.OptionMenu(top_frame, self.unit_var, "imperial", "imperial", "metric")
         unit_dropdown.pack(side="left", padx=5)
@@ -66,15 +64,25 @@ class WeatherApp:
         theme_btn = tk.Button(top_frame, text="Switch Theme", command=self.theme_manager.toggle_theme)
         theme_btn.pack(side="right", padx=5)
 
-        # Main frames for weather display and statistics
+    def setup_main_frame(self):
         main_frame = tk.Frame(self.root)
         main_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
+        # Weather display section
         self.weather_frame = tk.Frame(main_frame, bd=2, relief="groove", padx=15, pady=15)
         self.weather_frame.pack(side="left", fill="both", expand=True, padx=(0, 10), pady=5)
 
-        self.weather_label = tk.Label(self.weather_frame, text="Weather info will appear here", font=("Helvetica", 14), justify="center")
-        self.weather_label.pack(expand=True)
+        # Bigger temperature label
+        self.temperature_label = tk.Label(self.weather_frame, text="", font=("Helvetica", 70, "bold"), justify="center")
+        self.temperature_label.pack()
+
+        # Weather icon label placeholder (empty for now)
+        self.icon_label = tk.Label(self.weather_frame)
+        self.icon_label.pack()
+
+        # Smaller details label
+        self.weather_info_label = tk.Label(self.weather_frame, text="Weather info will appear here", font=("Helvetica", 14), justify="center")
+        self.weather_info_label.pack(expand=True)
 
         stats_frame = tk.Frame(main_frame, bd=2, relief="groove", padx=15, pady=15)
         stats_frame.pack(side="left", fill="both", expand=True, pady=5)
@@ -88,7 +96,7 @@ class WeatherApp:
         self.stats_canvas = tk.Canvas(stats_frame, height=100)
         self.stats_canvas.pack(fill="x")
 
-        # History frame showing past searches
+    def setup_history_frame(self):
         history_frame = tk.Frame(self.root, bd=2, relief="groove", padx=15, pady=15)
         history_frame.pack(fill="x", padx=10, pady=10)
 
@@ -102,7 +110,7 @@ class WeatherApp:
         export_btn = tk.Button(self.root, text="Export History to CSV", command=self.export_history)
         export_btn.pack(pady=10)
 
-        # Achievements frame
+    def setup_achievements_frame(self):
         achievements_frame = tk.Frame(self.root, bd=2, relief="groove", padx=15, pady=15)
         achievements_frame.pack(fill="x", padx=10, pady=10)
 
@@ -111,27 +119,23 @@ class WeatherApp:
 
         self.achievements_listbox = tk.Listbox(achievements_frame, height=6, font=("Helvetica", 12))
         self.achievements_listbox.pack(fill="x")
-        # self.update_achievements_display()
+
         self.achievement_manager = AchievementManager(
             self.achievements_listbox,
             self.searched_cities
         )
 
-
     def clear_placeholder(self, event):
-        """Clear placeholder text when the entry field gains focus."""
         if self.city_entry.get() == "Enter City Name":
             self.city_entry.delete(0, "end")
             self.city_entry.config(fg="black")
 
     def restore_placeholder(self, event):
-        """Restore placeholder text if entry is empty when it loses focus."""
         if not self.city_entry.get():
             self.city_entry.insert(0, "Enter City Name")
             self.city_entry.config(fg="grey")
 
     def enter_pressed(self, event):
-        """Handle Enter key press event to trigger weather request."""
         self.handle_weather_request()
 
     def get_valid_city(self):
@@ -144,6 +148,36 @@ class WeatherApp:
     def show_error(self, message):
         messagebox.showerror("Error", message)
 
+    def handle_weather_request(self):
+        city = self.get_valid_city()
+        if city is None:
+            return
+
+        units = self.unit_var.get()
+        print(f"Fetching weather for: {city} ({units})")
+
+        data, error = self.weather_api.fetch_weather(city, units)
+
+        if error:
+            print(f"Weather API error: {error}")
+            self.show_error(error)
+            return
+
+        if not data or "main" not in data:
+            print("Invalid response from API.")
+            self.show_error("Could not fetch weather data.")
+            return
+
+        processed = self.processor.process_api_response(data, units)
+        if not processed:
+            print("Processing failed.")
+            self.show_error("Error processing weather data.")
+            return
+
+        print(f"Processed data: {processed}")
+        self.update_ui_with_weather(processed, city, units)
+
+
     def update_ui_with_weather(self, processed, city, units):
         self.display_weather(processed)
         self.save_weather_entry(processed)
@@ -151,53 +185,60 @@ class WeatherApp:
         self.update_history_display()
         self.achievement_manager.check_achievements(processed, city, units)
 
-    def handle_weather_request(self):
-        city = self.get_valid_city()
-        if city is None:
-            return
-
-        units = self.unit_var.get()
-        data, error = self.weather_api.fetch_weather(city, units)
-
-        if error:
-            self.show_error(error)
-            return
-
-        if not data or "main" not in data:
-            self.show_error("Could not fetch weather data.")
-            return
-
-        processed = self.processor.process_api_response(data, units)
-        if not processed:
-            self.show_error("Error processing weather data.")
-            return
-
-        self.update_ui_with_weather(processed, city, units)
-
-
-
     def display_weather(self, data):
-        """Update the weather display label with the current data."""
-        text = (
-            f"{data['temperature']}{data['unit']}\n"
+        self.temperature_label.config(text=f"{data['temperature']}{data['unit']}")
+
+        info_text = (
             f"{data['city']}\n"
             f"Feels Like: {data['feels_like']}{data['unit']}\n"
             f"Humidity: {data['humidity']}%\n"
             f"Description: {data['description'].capitalize()}\n"
             f"Wind Speed: {data['wind_speed']}"
         )
-        self.weather_label.config(text=text)
+        self.weather_info_label.config(text=info_text)
+
+        # Load and show icon
+        icon_path = self.get_weather_icon_path(data["description"])
+
+        try:
+            # Open, resize, and convert to a PhotoImage for Tkinter
+            img = Image.open(icon_path).resize((64, 64), Image.ANTIALIAS)
+            self.weather_icon = ImageTk.PhotoImage(img)
+            self.icon_label.config(image=self.weather_icon)
+        except Exception as e:
+            print(f"Failed to load icon: {e}")
+            self.icon_label.config(image="")
+
+    def get_weather_icon_path(self, description):
+        mapping = {
+            "clear": "clear.png",
+            "clouds": "clouds.png",
+            "rain": "rain.png",
+            "drizzle": "drizzle.png",
+            "thunderstorm": "thunderstorm.png",
+            "snow": "snow.png",
+            "mist": "mist.png",
+        }
+        desc = description.lower()
+        for key in mapping:
+            if key in desc:
+                icon_filename = mapping[key]
+                break
+        else:
+            icon_filename = "default.png"
+
+        # Build absolute path relative to your script's directory
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(base_dir, "assets", "icons", icon_filename)
+        return icon_path
+
+
 
     def save_weather_entry(self, data):
-        """Save the current weather data entry into the database and refresh history."""
         self.db.save_weather_entry(data)
         self.weather_history = self.db.get_weather_history()
 
     def update_statistics(self):
-        """
-        Calculate statistics from the weather history and update the display,
-        including drawing the temperature trend graph.
-        """
         history = self.db.get_weather_history()
         if not history:
             self.stats_label.config(text="No statistics available.")
@@ -218,7 +259,6 @@ class WeatherApp:
         self.draw_trend_graph(history, trend)
 
     def draw_trend_graph(self, history, trend):
-        """Draw a line graph of temperature trend on the statistics canvas."""
         self.stats_canvas.delete("all")
         temps = [h['temperature'] for h in history]
         if not temps:
@@ -226,7 +266,6 @@ class WeatherApp:
 
         width = self.stats_canvas.winfo_width() or 300
         height = self.stats_canvas.winfo_height() or 100
-
         max_temp = max(temps)
         min_temp = min(temps)
         temp_range = max_temp - min_temp or 1
@@ -238,23 +277,17 @@ class WeatherApp:
             points.append((x, y))
 
         for i in range(len(points) - 1):
-            self.stats_canvas.create_line(points[i][0], points[i][1], points[i+1][0], points[i+1][1], fill="blue", width=2)
+            self.stats_canvas.create_line(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1], fill="blue", width=2)
 
-        # Draw trend label at top right corner
         self.stats_canvas.create_text(width - 50, 10, text=trend.capitalize(), fill="black", font=("Helvetica", 12, "bold"))
 
     def update_history_display(self):
-        """Refresh the search history listbox with recent entries."""
         self.history_listbox.delete(0, tk.END)
         for entry in self.weather_history:
             line = f"{entry['timestamp'][:19]} - {entry['city']} - {entry['temperature']}{entry['unit']}"
             self.history_listbox.insert(tk.END, line)
 
     def export_history(self):
-        """
-        Export weather search history to a CSV file selected by the user.
-        Unlock the export achievement if not already unlocked.
-        """
         if not self.db.get_weather_history():
             messagebox.showinfo("Export", "No data to export.")
             return
@@ -268,21 +301,16 @@ class WeatherApp:
             filetypes=[("CSV files", "*.csv")]
         )
         if not file_path:
-            return  # User cancelled save dialog
+            return
 
         try:
             self.db.export_to_csv(file_path)
             messagebox.showinfo("Export", f"History exported to {file_path}")
-
-            # Unlock achievement if not already unlocked
             self.achievement_manager.export_achievement()
-
         except Exception as e:
             messagebox.showerror("Export Error", f"Failed to export history: {e}")
 
-
     def run(self):
-        """Start the Tkinter main event loop."""
         self.root.mainloop()
 
 
