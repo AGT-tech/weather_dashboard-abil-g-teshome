@@ -2,8 +2,6 @@ import logging
 from typing import List, Dict, Union
 from features.trend_manager import TrendDetector
 
-# Configure logging — you might want to move this to your main entry point
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class StatisticsManager:
