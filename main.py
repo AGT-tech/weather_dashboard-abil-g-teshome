@@ -1,33 +1,22 @@
+# main.py
 import sys
 import os
-import logging
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import Config
-from core.api import WeatherAPI
-
-from gui.weather_gui import WeatherApp 
+from utils.logger_config import setup_logging
+from gui.weather_gui import WeatherApp
+import logging
 
 def main():
-    # Load config from environment variables
     config = Config.from_environment()
+    setup_logging(log_level=config.log_level)
 
-    # Set up logging once here
-    log_level = getattr(logging, config.log_level.upper(), logging.INFO)
-    logging.basicConfig(level=log_level,
-                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    
-    logging.info("Starting WeatherApp")
+    logging.getLogger(__name__).info("Starting WeatherApp")
 
-    # Initialize WeatherAPI using config values
-    weather_api = WeatherAPI(
-        api_key=config.api_key,
-        timeout=config.request_timeout
-    )
-
-    # Initialize and run the GUI app
     app = WeatherApp()
     app.run()
 
 if __name__ == "__main__":
-    main()    
+    main()
