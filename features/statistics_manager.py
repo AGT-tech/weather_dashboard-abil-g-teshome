@@ -22,6 +22,8 @@ class StatisticsManager:
                 'trend': str
             }
         """
+        logger.debug(f"Calculating statistics for history length: {len(history)}")
+
         if not history:
             logger.warning("Empty history provided.")
             return {
@@ -52,7 +54,12 @@ class StatisticsManager:
         minimum = min(temperatures)
         maximum = max(temperatures)
 
-        raw_trend = TrendDetector.detect_trend(temperatures)
+        try:
+            raw_trend = TrendDetector.detect_trend(temperatures)
+        except Exception as e:
+            logger.error(f"Trend detection failed: {e}")
+            raw_trend = None
+
         trend = raw_trend.capitalize() if raw_trend else "No trend"
 
         logger.info(f"Calculated statistics - Avg: {average}, Min: {minimum}, Max: {maximum}, Trend: {trend}")
