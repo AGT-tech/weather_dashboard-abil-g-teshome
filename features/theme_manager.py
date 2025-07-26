@@ -1,13 +1,12 @@
-# core/theme_manager.py
-
 import os
 import json
 import tkinter as tk
+import logging
 
 class ThemeManager:
     def __init__(self, root):
+        self.logger = logging.getLogger(__name__)
         self.root = root
-        # Theme setup with light/dark options
         self.current_theme = "light"
         self.themes = {
             "light": {
@@ -49,6 +48,7 @@ class ThemeManager:
                 recursive_color_update(child)
 
         recursive_color_update(self.root)
+        self.logger.info(f"Applied theme: {self.current_theme}")
 
     def load_theme_preference(self):
         try:
@@ -56,10 +56,13 @@ class ThemeManager:
                 data = json.load(f)
                 if data.get("theme") in self.themes:
                     self.current_theme = data["theme"]
+                    self.logger.info(f"Loaded theme preference: {self.current_theme}")
         except FileNotFoundError:
             self.current_theme = "light"
+            self.logger.info("Theme preference file not found; defaulting to light theme")
 
     def save_theme_preference(self):
         os.makedirs("data", exist_ok=True)
         with open("data/theme_pref.json", "w") as f:
             json.dump({"theme": self.current_theme}, f)
+        self.logger.info(f"Saved theme preference: {self.current_theme}")
