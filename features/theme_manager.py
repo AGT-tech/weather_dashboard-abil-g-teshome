@@ -61,15 +61,20 @@ class ThemeManager:
         try:
             with open("data/theme_pref.json", "r") as f:
                 data = json.load(f)
-                if data.get("theme") in self.themes:
-                    self.current_theme = data["theme"]
+                theme = data.get("theme")
+                if theme in self.themes:
+                    self.current_theme = theme
                     self.logger.info(f"Loaded theme preference: {self.current_theme}")
+                else:
+                    self.current_theme = "light"
+                    self.logger.warning(f"Invalid theme preference '{theme}' found, defaulting to light")
         except FileNotFoundError:
             self.current_theme = "light"
             self.logger.info("Theme preference file not found; defaulting to light theme")
         except Exception as e:
-            self.logger.error(f"Error loading theme preference: {e}")
             self.current_theme = "light"
+            self.logger.error(f"Error loading theme preference: {e}")
+
 
     def save_theme_preference(self):
         try:
