@@ -4,6 +4,11 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 class TrendDetector:
+    """
+    Provides functionality to detect the trend (rising, falling, or stable)
+    in a list of temperature values using simple linear regression.
+    """
+
     @staticmethod
     def detect_trend(temps: List[int]) -> str:
         """
