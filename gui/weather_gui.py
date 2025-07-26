@@ -9,13 +9,16 @@ from features.theme_manager import ThemeManager
 from features.trend_manager import TrendDetector
 from features.achievement_manager import AchievementManager
 from datetime import datetime
-from PIL import Image, ImageTk  
+from PIL import Image, ImageTk
 import os
+import logging
 
 
 class WeatherApp:
     def __init__(self):
         """Initialize the WeatherApp GUI and all supporting components."""
+        self.logger = logging.getLogger(__name__)  # logger setup
+
         self.root = tk.Tk()
         self.root.configure(bg="orange")
         self.root.title("Weather Dashboard")
@@ -25,7 +28,7 @@ class WeatherApp:
         self.weather_api = WeatherAPI(
             api_key=config.api_key,
             timeout=config.request_timeout
-            )
+        )
         self.processor = DataProcessor()
         self.theme_manager = ThemeManager(self.root)
         self.db = WeatherDB()
@@ -36,7 +39,6 @@ class WeatherApp:
         self.theme_manager.apply_theme()
 
     def setup_ui(self):
-        """Set up the full user interface."""
         self.setup_top_frame()
         self.setup_main_frame()
         self.setup_history_frame()
@@ -68,19 +70,15 @@ class WeatherApp:
         main_frame = tk.Frame(self.root)
         main_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Weather display section
         self.weather_frame = tk.Frame(main_frame, bd=2, relief="groove", padx=15, pady=15)
         self.weather_frame.pack(side="left", fill="both", expand=True, padx=(0, 10), pady=5)
 
-        # Bigger temperature label
         self.temperature_label = tk.Label(self.weather_frame, text="", font=("Helvetica", 70, "bold"), justify="center")
         self.temperature_label.pack()
 
-        # Weather icon label placeholder (empty for now)
         self.icon_label = tk.Label(self.weather_frame)
         self.icon_label.pack()
 
-        # Smaller details label
         self.weather_info_label = tk.Label(self.weather_frame, text="Weather info will appear here", font=("Helvetica", 14), justify="center")
         self.weather_info_label.pack(expand=True)
 
@@ -154,29 +152,28 @@ class WeatherApp:
             return
 
         units = self.unit_var.get()
-        print(f"Fetching weather for: {city} ({units})")
+        self.logger.info(f"Fetching weather for: {city} ({units})")
 
         data, error = self.weather_api.fetch_weather(city, units)
 
         if error:
-            print(f"Weather API error: {error}")
+            self.logger.warning(f"Weather API error: {error}")
             self.show_error(error)
             return
 
         if not data or "main" not in data:
-            print("Invalid response from API.")
+            self.logger.error("Invalid response from API.")
             self.show_error("Could not fetch weather data.")
             return
 
         processed = self.processor.process_api_response(data, units)
         if not processed:
-            print("Processing failed.")
+            self.logger.error("Processing weather data failed.")
             self.show_error("Error processing weather data.")
             return
 
-        print(f"Processed data: {processed}")
+        self.logger.debug(f"Processed data: {processed}")
         self.update_ui_with_weather(processed, city, units)
-
 
     def update_ui_with_weather(self, processed, city, units):
         self.display_weather(processed)
@@ -197,16 +194,14 @@ class WeatherApp:
         )
         self.weather_info_label.config(text=info_text)
 
-        # Load and show icon
         icon_path = self.get_weather_icon_path(data["description"])
 
         try:
-            # Open, resize, and convert to a PhotoImage for Tkinter
             img = Image.open(icon_path).resize((64, 64), Image.ANTIALIAS)
             self.weather_icon = ImageTk.PhotoImage(img)
             self.icon_label.config(image=self.weather_icon)
         except Exception as e:
-            print(f"Failed to load icon: {e}")
+            self.logger.warning(f"Failed to load weather icon: {e}")
             self.icon_label.config(image="")
 
     def get_weather_icon_path(self, description):
@@ -227,12 +222,8 @@ class WeatherApp:
         else:
             icon_filename = "default.png"
 
-        # Build absolute path relative to your script's directory
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        icon_path = os.path.join(base_dir, "assets", "icons", icon_filename)
-        return icon_path
-
-
+        return os.path.join(base_dir, "assets", "icons", icon_filename)
 
     def save_weather_entry(self, data):
         self.db.save_weather_entry(data)
@@ -305,9 +296,11 @@ class WeatherApp:
 
         try:
             self.db.export_to_csv(file_path)
+            self.logger.info(f"Exported history to: {file_path}")
             messagebox.showinfo("Export", f"History exported to {file_path}")
             self.achievement_manager.export_achievement()
         except Exception as e:
+            self.logger.exception(f"Export failed: {e}")
             messagebox.showerror("Export Error", f"Failed to export history: {e}")
 
     def run(self):
