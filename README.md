@@ -77,6 +77,25 @@ weather-dashboard/
 └── requirements.txt              # Python dependencies
 ```
 
+## 📦 Usage
+
+Using the App
+
+- Enter a city name in the text box.
+
+- Select temperature unit (Imperial or Metric).
+
+- Click “Get Weather” to fetch current data.
+
+- Use “Switch Theme” to toggle between light/dark modes.
+
+- Use “Show Search History” or “Export History” as needed.
+
+- Load multiple cities from CSV via “Load Cities from CSV”.
+
+
+
+
 ## 🧩 Requirements
 
 - Python 3.8+
