@@ -11,7 +11,11 @@ from features.achievement_manager import AchievementManager
 from datetime import datetime
 from PIL import Image, ImageTk
 import os
+import csv
 import logging
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 
 
 class WeatherApp:
@@ -41,7 +45,6 @@ class WeatherApp:
     def setup_ui(self):
         self.setup_top_frame()
         self.setup_main_frame()
-        self.setup_history_frame()
         self.setup_achievements_frame()
 
     def setup_top_frame(self):
@@ -65,6 +68,14 @@ class WeatherApp:
 
         theme_btn = tk.Button(top_frame, text="Switch Theme", command=self.theme_manager.toggle_theme)
         theme_btn.pack(side="right", padx=5)
+
+        show_history_btn = tk.Button(top_frame, text="Show Search History", command=self.show_search_history)
+        show_history_btn.pack(side="left", padx=5)
+
+
+        load_csv_btn = tk.Button(top_frame, text="Load Cities from CSV", command=self.load_cities_from_csv)
+        load_csv_btn.pack(side="left", padx=5)
+
 
     def setup_main_frame(self):
         main_frame = tk.Frame(self.root)
@@ -94,19 +105,23 @@ class WeatherApp:
         self.stats_canvas = tk.Canvas(stats_frame, height=100)
         self.stats_canvas.pack(fill="x")
 
-    def setup_history_frame(self):
-        history_frame = tk.Frame(self.root, bd=2, relief="groove", padx=15, pady=15)
-        history_frame.pack(fill="x", padx=10, pady=10)
+        self.card_container = tk.Frame(self.root)
+        self.card_container.pack(fill="x", padx=10, pady=10)
 
-        history_label = tk.Label(history_frame, text="Search History", font=("Helvetica", 16, "bold"))
-        history_label.pack(anchor="w")
 
-        self.history_listbox = tk.Listbox(history_frame, height=6, font=("Helvetica", 12))
-        self.history_listbox.pack(fill="x")
-        self.update_history_display()
+    def show_search_history(self):
+        if not self.weather_history:
+            messagebox.showinfo("Search History", "No recent searches.")
+            return
 
-        export_btn = tk.Button(self.root, text="Export History to CSV", command=self.export_history)
-        export_btn.pack(pady=10)
+        entries = [
+            f"{entry.get('date', 'N/A')} {entry.get('time', 'N/A')} - {entry.get('city', 'N/A')} - {entry.get('temperature', '?')}{entry.get('unit', '')}"
+            for entry in reversed(self.weather_history[-6:])
+        ]
+        history_text = "\n".join(entries)
+
+        messagebox.showinfo("Search History", history_text)
+
 
     def setup_achievements_frame(self):
         achievements_frame = tk.Frame(self.root, bd=2, relief="groove", padx=15, pady=15)
@@ -179,7 +194,6 @@ class WeatherApp:
         self.display_weather(processed)
         self.save_weather_entry(processed)
         self.update_statistics()
-        self.update_history_display()
         self.achievement_manager.check_achievements(processed, city, units)
 
     def display_weather(self, data):
@@ -274,9 +288,11 @@ class WeatherApp:
 
     def update_history_display(self):
         self.history_listbox.delete(0, tk.END)
-        for entry in self.weather_history:
-            line = f"{entry['timestamp'][:19]} - {entry['city']} - {entry['temperature']}{entry['unit']}"
-            self.history_listbox.insert(tk.END, line)
+        valid = [entry for entry in reversed(self.weather_history)
+                if all(key in entry for key in ("date", "time", "city", "temperature", "unit"))][:6]
+        for entry in valid:
+            self.history_listbox.insert(tk.END, f"{entry['date']} {entry['time']} - {entry['city']} - {entry['temperature']}{entry['unit']}")
+
 
     def export_history(self):
         if not self.db.get_weather_history():
@@ -303,6 +319,121 @@ class WeatherApp:
             self.logger.exception(f"Export failed: {e}")
             messagebox.showerror("Export Error", f"Failed to export history: {e}")
 
+    def load_cities_from_csv(self):
+        try:
+            csv_path = os.path.join(os.path.dirname(__file__), '..', 'group_csv.csv')
+            with open(csv_path, newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                cities = [row['City'].strip() for row in reader if row.get('City')]
+        except Exception as e:
+            self.logger.error(f"CSV load error: {e}")
+            messagebox.showerror("CSV Error", f"Failed to load cities: {e}")
+            return
+
+        # Clear old cards
+        for widget in self.card_container.winfo_children():
+            widget.destroy()
+
+        for city in cities[:5]:
+            self.display_city_weather_and_forecast(city)
+
+
+
+    def display_forecast_for_city(self, city):
+        units = self.unit_var.get()
+        data, error = self.weather_api.fetch_forecast(city, units)
+        if error or not data or 'list' not in data:
+            self.logger.warning(f"Skipping {city}: {error or 'no forecast list'}")
+            return
+
+        # Group by date and compute simple summary
+        days = {}
+        for item in data["list"]:
+            d = item["dt_txt"].split(" ")[0]
+            days.setdefault(d, []).append(item)
+
+        # Create a simple popup window
+        win = tk.Toplevel(self.root)
+        win.title(f"5-day Forecast: {city}")
+        text = tk.Text(win, wrap="word")
+        text.pack(fill="both", expand=True)
+
+        for date, entries in days.items():
+            avg_temp = sum(e["main"]["temp"] for e in entries) / len(entries)
+            descs = {e["weather"][0]["description"] for e in entries}
+            text.insert("end", f"{date}: Avg Temp {avg_temp:.1f}°{units}, {', '.join(descs)}\n\n")
+        text.config(state="disabled")
+
+    def display_city_card(self, city):
+        units = self.unit_var.get()
+        data, error = self.weather_api.fetch_weather(city, units)
+        if error or not data or 'main' not in data:
+            self.logger.warning(f"Could not load city card for {city}: {error}")
+            return
+
+        processed = self.processor.process_api_response(data, units)
+        if not processed:
+            return
+
+        card = tk.Frame(self.card_container, bd=1, relief="solid", padx=8, pady=8)
+        card.pack(side="left", padx=5, pady=5, expand=True, fill="both")
+
+        title = tk.Label(card, text=processed["city"], font=("Helvetica", 16, "bold"))
+        title.pack()
+
+        temp = tk.Label(card, text=f"{processed['temperature']}{processed['unit']}", font=("Helvetica", 24))
+        temp.pack()
+
+        desc = tk.Label(card, text=processed['description'].capitalize(), font=("Helvetica", 12))
+        desc.pack()
+
+        # Optional icon
+        try:
+            icon_path = self.get_weather_icon_path(processed["description"])
+            img = Image.open(icon_path).resize((48, 48), Image.ANTIALIAS)
+            card.icon = ImageTk.PhotoImage(img)
+            icon_lbl = tk.Label(card, image=card.icon)
+            icon_lbl.pack()
+        except Exception:
+            pass
+
+    def display_city_weather_and_forecast(self, city):
+        units = self.unit_var.get()
+        wdata, werr = self.weather_api.fetch_weather(city, units)
+        fdata, ferr = self.weather_api.fetch_forecast(city, units)
+        if werr or ferr or not wdata or not fdata or "main" not in wdata or "list" not in fdata:
+            self.logger.warning(f"Skipping {city}: {werr or ferr or 'bad data'}")
+            return
+
+        current = self.processor.process_api_response(wdata, units)
+
+        # aggregate forecast by day
+        days = {}
+        for e in fdata["list"]:
+            d = e["dt_txt"].split()[0]
+            days.setdefault(d, []).append(e["main"]["temp"])
+        dates, temps = zip(*sorted((d, sum(l)/len(l)) for d, l in days.items()))
+
+        card = tk.Frame(self.card_container, bd=2, relief="groove", padx=10, pady=10)
+        card.pack(side="left", padx=5, pady=5, fill="both", expand=True)
+
+        tk.Label(card, text=current["city"], font=("Helvetica", 14, "bold")).pack()
+        tk.Label(card, text=f"{current['temperature']}{current['unit']}", font=("Helvetica", 24)).pack()
+        tk.Label(card, text=current["description"].capitalize(), font=("Helvetica", 12)).pack()
+
+        fig = Figure(figsize=(3,2), dpi=100)
+        ax = fig.add_subplot(111)
+        ax.plot(dates, temps, marker="o", linestyle="-")
+        ax.tick_params(axis='x', labelrotation=45)  # or 45 if needed
+        ax.set_title("5‑Day Avg Temp")
+        ax.set_xlabel("Date")
+        ax.set_ylabel(f"T ({current['unit']})")
+        fig.tight_layout()
+
+        canvas = FigureCanvasTkAgg(fig, master=card)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
     def run(self):
         self.root.mainloop()
 
@@ -310,3 +441,8 @@ class WeatherApp:
 if __name__ == "__main__":
     app = WeatherApp()
     app.run()
+    
+    
+    
+
+
