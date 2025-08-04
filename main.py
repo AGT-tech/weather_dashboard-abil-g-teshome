@@ -10,13 +10,17 @@ from gui.weather_gui import WeatherApp
 import logging
 
 def main():
-    config = Config.from_environment()
-    setup_logging(log_level=config.log_level)
+    try:
+        config = Config.from_environment()
+        setup_logging(log_level=config.log_level)
 
-    logging.getLogger(__name__).info("Starting WeatherApp")
+        logging.getLogger(__name__).info("Starting WeatherApp")
 
-    app = WeatherApp()
-    app.run()
+        app = WeatherApp()
+        app.run()
+    except Exception as e:
+        logging.getLogger(__name__).exception("Fatal error on startup")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
