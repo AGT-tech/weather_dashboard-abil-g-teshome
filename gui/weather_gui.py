@@ -423,7 +423,7 @@ class WeatherApp:
 
         fig = Figure(figsize=(3,2), dpi=100)
         ax = fig.add_subplot(111)
-        ax.plot(dates, temps, marker="o", linestyle="-")
+        ax.plot(dates, temps, marker="o", linestyle="-", color="blue")
         ax.tick_params(axis='x', labelrotation=45)  # or 45 if needed
         ax.set_title("5‑Day Avg Temp")
         ax.set_xlabel("Date")
