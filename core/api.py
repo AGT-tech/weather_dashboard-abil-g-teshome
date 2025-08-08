@@ -1,3 +1,11 @@
+"""
+weather_api.py
+
+This module provides a WeatherAPI class to interact with the OpenWeatherMap API.
+It supports current weather and 5-day forecast retrieval, with built-in caching,
+retry logic, and structured error handling.
+"""
+
 import requests
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Tuple
@@ -7,6 +15,17 @@ import time
 
 @dataclass
 class WeatherAPI:
+    """
+    Class to interact with the OpenWeatherMap API.
+    
+    Attributes:
+        api_key (str): API key for authentication.
+        timeout (int): Timeout in seconds for API requests.
+        base_url (str): URL for the current weather API endpoint.
+        max_retries (int): Number of retry attempts for failed requests.
+        cache_duration (int): Cache expiry duration in seconds.
+        cache (dict): In-memory cache to store API responses.
+    """
     api_key: str
     timeout: int = 10
     base_url: str = "http://api.openweathermap.org/data/2.5/weather"
@@ -16,7 +35,14 @@ class WeatherAPI:
 
     def fetch_weather(self, city: str, units: str = "imperial") -> Tuple[Optional[Dict], Optional[str]]:
         """
-        Fetch current weather data from the OpenWeatherMap API with caching.
+        Fetch current weather data for a given city with optional unit specification.
+
+        Args:
+            city (str): City name to fetch weather for.
+            units (str): Measurement units ('imperial', 'metric', etc.).
+
+        Returns:
+            Tuple[Optional[Dict], Optional[str]]: Weather data and error message (if any).
         """
         cache_key = (city.lower(), units)
         cached = self._get_cached_response(cache_key)
@@ -31,13 +57,17 @@ class WeatherAPI:
 
         for attempt in range(1, self.max_retries + 1):
             try:
+                # Make GET request to current weather endpoint
                 response = requests.get(self.base_url, params=params, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
+                
+                # Cache the response and return it
                 self._set_cache_response(cache_key, data)
                 return data, None
 
             except requests.exceptions.HTTPError as e:
+                # Handle known HTTP status codes
                 if response.status_code == 401:
                     return None, "Invalid API key. Check your credentials."
                 elif response.status_code == 404:
@@ -65,7 +95,14 @@ class WeatherAPI:
 
     def fetch_forecast(self, city: str, units: str = "imperial") -> Tuple[Optional[Dict], Optional[str]]:
         """
-        Fetch 5-day weather forecast for a city with caching.
+        Fetch 5-day forecast weather data for a given city with optional unit specification.
+
+        Args:
+            city (str): City name to fetch forecast for.
+            units (str): Measurement units ('imperial', 'metric', etc.).
+
+        Returns:
+            Tuple[Optional[Dict], Optional[str]]: Forecast data and error message (if any).
         """
         cache_key = (f"forecast:{city.lower()}", units)
         cached = self._get_cached_response(cache_key)
@@ -81,9 +118,12 @@ class WeatherAPI:
 
         for attempt in range(1, self.max_retries + 1):
             try:
+                # Make GET request to forecast endpoint
                 response = requests.get(forecast_url, params=params, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
+
+                # Cache and return the data
                 self._set_cache_response(cache_key, data)
                 return data, None
 
@@ -106,7 +146,13 @@ class WeatherAPI:
 
     def _get_cached_response(self, key: Tuple[str, str]) -> Optional[Dict]:
         """
-        Return cached data if valid; otherwise, None.
+        Return cached data if still valid based on cache_duration.
+
+        Args:
+            key (Tuple[str, str]): Unique key representing the request (e.g., city and units).
+
+        Returns:
+            Optional[Dict]: Cached data if present and not expired, else None.
         """
         cached = self.cache.get(key)
         if cached:
@@ -115,11 +161,16 @@ class WeatherAPI:
                 logging.info(f"Returning cached data for key: {key}")
                 return data
             else:
+                # Remove expired cache entry
                 del self.cache[key]
         return None
 
     def _set_cache_response(self, key: Tuple[str, str], data: Dict) -> None:
         """
-        Store data in cache with the current timestamp.
+        Store response data in the cache with a timestamp.
+
+        Args:
+            key (Tuple[str, str]): Unique key for the cached data.
+            data (Dict): Response data to cache.
         """
         self.cache[key] = (data, time.time())
